@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}KlinikBot{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0;
+               background: #f4f6f8; color: #1a2027; }
+        header { background: #0d6efd; color: #fff; padding: 12px 20px;
+                 display: flex; gap: 20px; align-items: center; }
+        header a { color: #fff; text-decoration: none; font-weight: 500; }
+        header .brand { font-weight: 700; font-size: 18px; }
+        header form { margin-left: auto; }
+        header button { background: transparent; border: 1px solid #fff;
+                        color: #fff; padding: 4px 10px; border-radius: 6px;
+                        cursor: pointer; }
+        main { max-width: 900px; margin: 20px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 10px; padding: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eef1f4; }
+        .badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+        .badge-paused { background: #ffe3e3; color: #c92a2a; }
+        .badge-active { background: #d3f9d8; color: #2b8a3e; }
+        .msg { padding: 8px 12px; border-radius: 10px; margin: 6px 0; max-width: 75%; }
+        .msg-customer { background: #eef1f4; }
+        .msg-bot { background: #e7f5ff; margin-left: auto; }
+        .msg-operator { background: #fff3bf; margin-left: auto; }
+        .msg small { display: block; color: #868e96; font-size: 11px; margin-top: 4px; }
+        input[type=text], textarea { width: 100%; padding: 10px; border: 1px solid #ced4da;
+                                     border-radius: 8px; font-size: 14px; }
+        button.primary { background: #0d6efd; color: #fff; border: none;
+                         padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+        button.secondary { background: #e9ecef; border: none; padding: 8px 14px;
+                           border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+{% if user.is_authenticated %}
+<header>
+    <span class="brand">KlinikBot</span>
+    <a href="{% url 'inbox:conversation_list' %}">Danışıqlar</a>
+    <a href="{% url 'inbox:appointment_list' %}">Randevu sorğuları</a>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+        <button type="submit">Çıxış ({{ user.username }})</button>
+    </form>
+</header>
+{% endif %}
+<main>{% block content %}{% endblock %}</main>
+</body>
+</html>

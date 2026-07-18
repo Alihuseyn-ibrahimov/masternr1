@@ -1,0 +1,43 @@
+{% extends "inbox/base.html" %}
+{% block title %}Danışıq — KlinikBot{% endblock %}
+{% block content %}
+<p><a href="{% url 'inbox:conversation_list' %}">← Danışıqlar</a></p>
+<div class="card">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <div>
+            <strong>{{ conversation.clinic.name }}</strong> ·
+            {{ conversation.get_channel_display }} ·
+            {{ conversation.customer_name|default:conversation.external_user_id }}
+        </div>
+        <form method="post" action="{% url 'inbox:toggle_bot' conversation.pk %}" style="margin-left:auto;">
+            {% csrf_token %}
+            {% if conversation.bot_paused %}
+                <button class="secondary" type="submit">Botu bərpa et</button>
+            {% else %}
+                <button class="secondary" type="submit">Botu dayandır</button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    {% for m in messages_list %}
+        <div class="msg msg-{{ m.role }}">
+            {{ m.text }}
+            <small>{{ m.get_role_display }} · {{ m.created_at|date:"d.m H:i" }}</small>
+        </div>
+    {% empty %}
+        <p>Mesaj yoxdur.</p>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <form method="post" action="{% url 'inbox:send_reply' conversation.pk %}">
+        {% csrf_token %}
+        <textarea name="text" rows="2" placeholder="Operator cavabı yazın..."></textarea>
+        <div style="margin-top:8px;">
+            <button class="primary" type="submit">Göndər</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
