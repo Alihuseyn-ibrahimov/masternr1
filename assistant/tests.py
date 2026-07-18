@@ -1,7 +1,10 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 
 from clinics.models import Clinic, Doctor, FAQItem, Service
 
+from . import responder
 from .models import AppointmentRequest, Conversation, Message
 from .prompt import build_system_prompt
 
@@ -132,3 +135,146 @@ class ConversationModelTests(TestCase):
             preferred_time_text="çərşənbə axşamüstü",
         )
         self.assertEqual(req.status, AppointmentRequest.Status.NEW)
+
+
+# --- Fake Anthropic client (tool-use agentini test etmək üçün) ---
+
+
+class FakeBlock:
+    def __init__(self, type, text=None, name=None, input=None, id=None):
+        self.type = type
+        self.text = text
+        self.name = name
+        self.input = input or {}
+        self.id = id
+
+
+class FakeResponse:
+    def __init__(self, content, stop_reason):
+        self.content = content
+        self.stop_reason = stop_reason
+
+
+class FakeClient:
+    """client.messages.create(...) ardıcıl hazır cavablar qaytarır."""
+
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.calls = []
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return self._responses.pop(0)
+
+
+def text_response(text):
+    return FakeResponse([FakeBlock("text", text=text)], "end_turn")
+
+
+class AgentTests(TestCase):
+    def setUp(self):
+        self.clinic = make_clinic()
+        self.conv = Conversation.objects.create(
+            clinic=self.clinic,
+            channel=Conversation.Channel.WHATSAPP,
+            external_user_id="994501112233",
+        )
+
+    def _add_customer_msg(self, text):
+        Message.objects.create(
+            conversation=self.conv, role=Message.Role.CUSTOMER, text=text
+        )
+
+    def test_plain_answer_returned(self):
+        self._add_customer_msg("Diş təmizliyi neçəyədir?")
+        client = FakeClient([text_response("Diş təmizliyi 50 AZN-dir.")])
+        reply = responder.generate_reply(self.conv, client=client)
+        self.assertEqual(reply, "Diş təmizliyi 50 AZN-dir.")
+
+    def test_history_maps_roles_and_starts_with_user(self):
+        # Bot mesajı əvvəldə olsa da, ilk mesaj user olmalıdır
+        Message.objects.create(
+            conversation=self.conv, role=Message.Role.BOT, text="Xoş gəlmisiniz!"
+        )
+        self._add_customer_msg("Salam")
+        client = FakeClient([text_response("Salam, necə kömək edə bilərəm?")])
+        responder.generate_reply(self.conv, client=client)
+        sent = client.calls[0]["messages"]
+        self.assertEqual(sent[0]["role"], "user")
+        self.assertEqual(sent[0]["content"], "Salam")
+
+    @patch("assistant.notifications.notify_appointment")
+    def test_appointment_tool_creates_request_and_notifies(self, mock_notify):
+        self._add_customer_msg("Sabaha randevu istəyirəm, Orxan, 0551234567")
+        tool_use = FakeResponse(
+            [
+                FakeBlock(
+                    "tool_use",
+                    name="create_appointment_request",
+                    id="toolu_1",
+                    input={
+                        "customer_name": "Orxan",
+                        "phone": "0551234567",
+                        "service": "diş təmizliyi",
+                        "preferred_time": "sabah",
+                    },
+                )
+            ],
+            "tool_use",
+        )
+        final = text_response("Məlumatlarınızı qeyd etdim, sizinlə əlaqə saxlanılacaq.")
+        client = FakeClient([tool_use, final])
+
+        reply = responder.generate_reply(self.conv, client=client)
+
+        appt = AppointmentRequest.objects.get()
+        self.assertEqual(appt.customer_name, "Orxan")
+        self.assertEqual(appt.phone, "0551234567")
+        self.assertEqual(appt.clinic, self.clinic)
+        mock_notify.assert_called_once()
+        self.assertIn("qeyd etdim", reply)
+        # İkinci çağırışda tool_result göndərilib
+        self.assertEqual(len(client.calls), 2)
+
+    @patch("assistant.notifications.notify_handoff")
+    def test_handoff_tool_pauses_bot_and_notifies(self, mock_notify):
+        self._add_customer_msg("Operatorla danışmaq istəyirəm")
+        tool_use = FakeResponse(
+            [
+                FakeBlock(
+                    "tool_use",
+                    name="handoff_to_operator",
+                    id="toolu_2",
+                    input={"reason": "Müştəri operator istədi"},
+                )
+            ],
+            "tool_use",
+        )
+        client = FakeClient([tool_use, text_response("Sizi operatora yönləndirirəm.")])
+
+        responder.generate_reply(self.conv, client=client)
+
+        self.conv.refresh_from_db()
+        self.assertTrue(self.conv.bot_paused)
+        mock_notify.assert_called_once()
+
+    @patch("assistant.notifications.notify_handoff")
+    def test_llm_error_falls_back_and_alerts(self, mock_notify):
+        self._add_customer_msg("Salam")
+
+        class BoomClient:
+            def __init__(self):
+                self.messages = self
+
+            def create(self, **kwargs):
+                raise RuntimeError("API down")
+
+        reply = responder.generate_reply(self.conv, client=BoomClient())
+        self.assertEqual(reply, responder.FALLBACK_REPLY)
+        mock_notify.assert_called_once()
+
+    def test_empty_history_returns_fallback(self):
+        client = FakeClient([])
+        reply = responder.generate_reply(self.conv, client=client)
+        self.assertEqual(reply, responder.FALLBACK_REPLY)

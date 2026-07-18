@@ -139,8 +139,9 @@ class WebhookViewTests(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(Message.objects.count(), 0)
 
+    @patch("channels.tasks.generate_reply", return_value="Salam, necə kömək edim?")
     @patch("channels.tasks.send_reply")
-    def test_post_whatsapp_creates_conversation_and_replies(self, mock_send):
+    def test_post_whatsapp_creates_conversation_and_replies(self, mock_send, mock_reply):
         resp = self._post(fx.whatsapp_text_message())
         self.assertEqual(resp.status_code, 200)
 
@@ -151,8 +152,9 @@ class WebhookViewTests(TestCase):
         self.assertEqual(roles, [Message.Role.CUSTOMER, Message.Role.BOT])
         mock_send.assert_called_once()
 
+    @patch("channels.tasks.generate_reply", return_value="cavab")
     @patch("channels.tasks.send_reply")
-    def test_duplicate_message_id_deduped(self, mock_send):
+    def test_duplicate_message_id_deduped(self, mock_send, mock_reply):
         self._post(fx.whatsapp_text_message(message_id="wamid.DUP"))
         self._post(fx.whatsapp_text_message(message_id="wamid.DUP"))
         conv = Conversation.objects.get()
@@ -187,8 +189,9 @@ class WebhookViewTests(TestCase):
         self.assertEqual(Conversation.objects.count(), 0)
         mock_send.assert_not_called()
 
+    @patch("channels.tasks.generate_reply", return_value="cavab")
     @patch("channels.tasks.send_reply")
-    def test_instagram_message_routed(self, mock_send):
+    def test_instagram_message_routed(self, mock_send, mock_reply):
         self._post(fx.instagram_text_message())
         conv = Conversation.objects.get()
         self.assertEqual(conv.channel, Conversation.Channel.INSTAGRAM)

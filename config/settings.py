@@ -130,7 +130,9 @@ CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'true' if DEBUG
 
 # --- LLM ---
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-ASSISTANT_MODEL = os.getenv('ASSISTANT_MODEL', 'claude-sonnet-5')
+# Default Opus 4.8; yüksək həcmdə xərc üçün ASSISTANT_MODEL=claude-sonnet-5 qoyula bilər
+ASSISTANT_MODEL = os.getenv('ASSISTANT_MODEL', 'claude-opus-4-8')
+ASSISTANT_MAX_TOKENS = int(os.getenv('ASSISTANT_MAX_TOKENS', '1024'))
 
 # --- Meta (WhatsApp Cloud API + Instagram Messaging) ---
 META_APP_SECRET = os.getenv('META_APP_SECRET', '')
