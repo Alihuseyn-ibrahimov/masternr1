@@ -1,0 +1,15 @@
+[Unit]
+Description=KlinikBot Celery worker
+After=network.target redis-server.service
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/quantum/clinic_assistant
+EnvironmentFile=/opt/quantum/clinic_assistant/.env
+ExecStart=/opt/quantum/clinic_assistant/.venv/bin/celery -A config worker \
+    --loglevel=info --concurrency=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
