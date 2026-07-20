@@ -12,7 +12,7 @@ qalan yalnız secret-lər, servis konfiqurasiyası və pilot klinikanın məluma
 | WhatsApp `phone_number_id` | Meta app → WhatsApp → API Setup |
 | Instagram `page_id` | Bağlı FB/IG səhifəsi |
 | `TELEGRAM_BOT_TOKEN` + klinika qrup `chat_id` | @BotFather + qrupa bot əlavə et |
-| VPS (mediapulse ilə eyni Hetzner ola bilər) | mövcud |
+| VPS + HTTPS domen (məs. bot.prdostu.com subdomeni) | mövcud |
 
 `META_VERIFY_TOKEN` özün seçdiyin ixtiyari sətirdir (webhook qeydiyyatında
 Meta panelinə eyni dəyəri yazacaqsan).
@@ -25,7 +25,7 @@ sudo -u postgres createdb klinikbot
 sudo -u postgres createuser klinikbot --pwprompt   # şifrə qeyd et
 ```
 
-Kod deploy (mediapulse deploy pattern-i ilə):
+Kod deploy:
 
 ```bash
 cd /opt && git clone <repo> quantum && cd quantum/clinic_assistant
@@ -39,7 +39,7 @@ cp .env.example .env    # sonra .env-i doldur (aşağıya bax)
 ```
 DJANGO_SECRET_KEY=<uzun təsadüfi sətir>
 DJANGO_DEBUG=false
-DJANGO_ALLOWED_HOSTS=bot.mediapulse.az
+DJANGO_ALLOWED_HOSTS=bot.prdostu.com
 DATABASE_URL=postgres://klinikbot:<şifrə>@localhost/klinikbot   # settings-ə əlavə lazımdır (aşağı qeyd)
 CELERY_TASK_ALWAYS_EAGER=false
 ANTHROPIC_API_KEY=...
@@ -70,13 +70,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now klinikbot-web klinikbot-celery
 ```
 
-Nginx: `bot.mediapulse.az` → `127.0.0.1:8060` reverse proxy + Certbot TLS.
+Nginx: `bot.prdostu.com` → `127.0.0.1:8060` reverse proxy + Certbot TLS.
 **Meta webhook HTTPS tələb edir.**
 
 ## 4. Meta webhook qeydiyyatı
 
 Meta app → WhatsApp/Instagram → Webhooks → Callback URL:
-`https://bot.mediapulse.az/webhook/meta/`, Verify Token: `.env`-dəki
+`https://bot.prdostu.com/webhook/meta/`, Verify Token: `.env`-dəki
 `META_VERIFY_TOKEN`. `messages` sahəsinə abunə ol.
 
 ## 5. Pilot klinikanın onboarding-i (Django admin)

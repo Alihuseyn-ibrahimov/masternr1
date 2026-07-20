@@ -1,7 +1,8 @@
-"""Danışığa cavab mətninin generasiyası — Claude tool-use agenti.
+"""Danışığa cavab mətninin generasiyası — Groq (Llama) tool-use agenti.
 
+Groq API OpenAI-uyğun formatdadır (chat.completions.create + tools).
 Agent üç davranışa malikdir:
-- adi mətn cavabı ("answer") — klinikanın bilik bazasından cavab
+- adi mətn cavabı — klinikanın bilik bazasından cavab
 - `create_appointment_request` — randevu sorğusunu qeyd et + Telegram bildirişi
 - `handoff_to_operator` — botu pauza et + operatora Telegram bildirişi
 
@@ -9,6 +10,7 @@ Tibbi məsləhət qadağası system promptdadır (bax: `prompt.py`).
 Task interfeysi sabitdir: `generate_reply(conversation) -> str`.
 """
 
+import json
 import logging
 
 from django.conf import settings
@@ -32,56 +34,62 @@ HANDOFF_ACK = "Sizi bir operatorumuza yönləndirirəm, bir az gözləyin."
 
 TOOLS = [
     {
-        "name": "create_appointment_request",
-        "description": (
-            "Müştəri randevu istədikdə və lazımi məlumatları verdikdə çağır. "
-            "Ən azı ad və telefon nömrəsi toplanmalıdır."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "customer_name": {"type": "string", "description": "Müştərinin adı"},
-                "phone": {"type": "string", "description": "Əlaqə nömrəsi"},
-                "service": {
-                    "type": "string",
-                    "description": "İstənilən xidmət (varsa)",
+        "type": "function",
+        "function": {
+            "name": "create_appointment_request",
+            "description": (
+                "Müştəri randevu istədikdə və lazımi məlumatları verdikdə çağır. "
+                "Ən azı ad və telefon nömrəsi toplanmalıdır."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_name": {"type": "string", "description": "Müştərinin adı"},
+                    "phone": {"type": "string", "description": "Əlaqə nömrəsi"},
+                    "service": {
+                        "type": "string",
+                        "description": "İstənilən xidmət (varsa)",
+                    },
+                    "preferred_time": {
+                        "type": "string",
+                        "description": "İstənilən vaxt, sərbəst mətn (varsa)",
+                    },
                 },
-                "preferred_time": {
-                    "type": "string",
-                    "description": "İstənilən vaxt, sərbəst mətn (varsa)",
-                },
+                "required": ["customer_name", "phone"],
             },
-            "required": ["customer_name", "phone"],
         },
     },
     {
-        "name": "handoff_to_operator",
-        "description": (
-            "Müştəri insan operatorla danışmaq istədikdə, sual həssas/çətin olduqda "
-            "və ya narazılıq bildirdikdə çağır."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "reason": {
-                    "type": "string",
-                    "description": "Operatora ötürmə səbəbi (qısa)",
+        "type": "function",
+        "function": {
+            "name": "handoff_to_operator",
+            "description": (
+                "Müştəri insan operatorla danışmaq istədikdə, sual həssas/çətin olduqda "
+                "və ya narazılıq bildirdikdə çağır."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Operatora ötürmə səbəbi (qısa)",
+                    },
                 },
+                "required": ["reason"],
             },
-            "required": ["reason"],
         },
     },
 ]
 
 
 def _get_client():
-    import anthropic
+    import groq
 
-    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    return groq.Groq(api_key=settings.GROQ_API_KEY)
 
 
 def _history_to_messages(conversation: Conversation) -> list[dict]:
-    """Danışıq tarixçəsini Anthropic mesaj formatına çevirir."""
+    """Danışıq tarixçəsini OpenAI-uyğun mesaj formatına çevirir."""
     recent = list(conversation.messages.all())[-MAX_HISTORY:]
     messages = []
     for m in recent:
@@ -89,15 +97,10 @@ def _history_to_messages(conversation: Conversation) -> list[dict]:
             continue
         role = "user" if m.role == Message.Role.CUSTOMER else "assistant"
         messages.append({"role": role, "content": m.text})
-    # API ilk mesajın "user" olmasını tələb edir
+    # İlk mesaj "user" olmalıdır
     while messages and messages[0]["role"] != "user":
         messages.pop(0)
     return messages
-
-
-def _text_of(response) -> str:
-    parts = [b.text for b in response.content if b.type == "text"]
-    return "\n".join(p for p in parts if p).strip()
 
 
 def _handle_tool(conversation: Conversation, name: str, tool_input: dict) -> str:
@@ -124,33 +127,43 @@ def _handle_tool(conversation: Conversation, name: str, tool_input: dict) -> str
 
 
 def _run_agent(client, conversation, system, messages) -> str:
+    full_messages = [{"role": "system", "content": system}, *messages]
     response = None
+
     for _ in range(MAX_TOOL_ITERATIONS):
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=settings.ASSISTANT_MODEL,
             max_tokens=settings.ASSISTANT_MAX_TOKENS,
-            system=system,
+            messages=full_messages,
             tools=TOOLS,
-            messages=messages,
         )
-        if response.stop_reason != "tool_use":
-            break
+        choice = response.choices[0]
+        message = choice.message
 
-        messages.append({"role": "assistant", "content": response.content})
-        tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = _handle_tool(conversation, block.name, block.input)
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    }
-                )
-        messages.append({"role": "user", "content": tool_results})
+        if choice.finish_reason != "tool_calls" or not message.tool_calls:
+            return (message.content or "").strip()
 
-    return _text_of(response) if response else ""
+        full_messages.append(
+            {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": message.tool_calls,
+            }
+        )
+        for call in message.tool_calls:
+            args = json.loads(call.function.arguments or "{}")
+            result = _handle_tool(conversation, call.function.name, args)
+            full_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": result,
+                }
+            )
+
+    if response is not None:
+        return (response.choices[0].message.content or "").strip()
+    return ""
 
 
 def generate_reply(conversation: Conversation, client=None) -> str:

@@ -132,10 +132,9 @@ LOGOUT_REDIRECT_URL = 'login'
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'true' if DEBUG else 'false').lower() == 'true'
 
-# --- LLM ---
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
-# Default Opus 4.8; yüksək həcmdə xərc üçün ASSISTANT_MODEL=claude-sonnet-5 qoyula bilər
-ASSISTANT_MODEL = os.getenv('ASSISTANT_MODEL', 'claude-opus-4-8')
+# --- LLM (Groq — pulsuz, OpenAI-uyğun tool-use API) ---
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+ASSISTANT_MODEL = os.getenv('ASSISTANT_MODEL', 'llama-3.3-70b-versatile')
 ASSISTANT_MAX_TOKENS = int(os.getenv('ASSISTANT_MAX_TOKENS', '1024'))
 
 # --- Meta (WhatsApp Cloud API + Instagram Messaging) ---
