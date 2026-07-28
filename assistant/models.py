@@ -95,4 +95,4 @@ class AppointmentRequest(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.customer_name} — {self.service_text or 'randevu'} ({self.status})"
+        return f"{self.customer_name} — {self.service_text or 'sorğu'} ({self.status})"

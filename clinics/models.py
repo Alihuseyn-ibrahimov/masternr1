@@ -15,6 +15,18 @@ class Clinic(models.Model):
         blank=True,
         help_text="Sərbəst əlavə məlumat (parkinq, kampaniyalar və s.)",
     )
+    staff_label = models.CharField(
+        max_length=100,
+        default="Həkimlər / Mütəxəssislər",
+        help_text='Sistem promptunda komanda bölməsinin başlığı (məs. "Repetitorlar")',
+    )
+    guardrail_text = models.TextField(
+        blank=True,
+        help_text=(
+            "Xüsusi qadağa qaydası (məs. nəticə zəmanəti vermə). Boş qalsa "
+            "defolt tibbi məsləhət qadağası tətbiq olunur."
+        ),
+    )
 
     # Kanal kimlikləri
     whatsapp_phone_number_id = models.CharField(max_length=100, blank=True)

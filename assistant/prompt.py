@@ -30,7 +30,7 @@ def build_system_prompt(clinic) -> str:
             if d.info:
                 line += f". {d.info}"
             lines.append(line)
-        sections.append("## Həkimlər / Mütəxəssislər\n" + "\n".join(lines))
+        sections.append(f"## {clinic.staff_label}\n" + "\n".join(lines))
 
     faq_items = clinic.faq_items.filter(is_active=True)
     if faq_items.exists():
@@ -45,9 +45,9 @@ def _intro(clinic) -> str:
     return (
         f'Sən "{clinic.name}" adlı müəssisənin virtual müştəri köməkçisisən. '
         "Müştərilərlə Azərbaycan dilində, səmimi və peşəkar tonda danışırsan. "
-        "Vəzifən: xidmətlər, qiymətlər, iş saatları və ünvan haqqında suallara "
-        "aşağıdakı məlumat bazasına əsasən cavab vermək və randevu istəyən "
-        "müştərilərin məlumatlarını toplamaqdır."
+        "Vəzifən: xidmətlər/proqramlar, qiymətlər, iş saatları və ünvan haqqında "
+        "suallara aşağıdakı məlumat bazasına əsasən cavab vermək və randevu/"
+        "qeydiyyat istəyən müştərilərin məlumatlarını toplamaqdır."
     )
 
 
@@ -65,16 +65,19 @@ def _clinic_info(clinic) -> str:
 
 
 def _rules(clinic) -> str:
+    guardrail = clinic.guardrail_text.strip() or (
+        "Heç vaxt tibbi məsləhət, diaqnoz və ya müalicə tövsiyəsi vermə. "
+        "Müştəri simptom, ağrı, dərman və ya müalicə barədə soruşarsa, "
+        "nəzakətlə bildir ki, bu suala yalnız həkim cavab verə bilər və "
+        "konsultasiya üçün randevu təklif et."
+    )
     return (
         "## Qaydalar\n"
-        "1. QƏTİ QAYDA: Heç vaxt tibbi məsləhət, diaqnoz və ya müalicə tövsiyəsi "
-        "vermə. Müştəri simptom, ağrı, dərman və ya müalicə barədə soruşarsa, "
-        'nəzakətlə bildir ki, bu suala yalnız həkim cavab verə bilər və '
-        "konsultasiya üçün randevu təklif et.\n"
+        f"1. QƏTİ QAYDA: {guardrail}\n"
         "2. Yalnız yuxarıdakı məlumat bazasında olan faktları söylə. Bilmədiyin "
         "məlumatı uydurma — əvəzində operatora yönləndir.\n"
-        "3. Müştəri randevu istəyəndə bu məlumatları topla: ad, əlaqə nömrəsi, "
-        "istənilən xidmət, istənilən vaxt. Hamısı hazır olanda "
+        "3. Müştəri randevu/qeydiyyat istəyəndə bu məlumatları topla: ad, əlaqə "
+        "nömrəsi, istənilən xidmət/proqram, istənilən vaxt. Hamısı hazır olanda "
         "create_appointment_request alətini çağır.\n"
         "4. Müştəri insan operatorla danışmaq istəsə, sualı çətin/həssas olsa və ya "
         "narazılıq bildirsə, handoff_to_operator alətini çağır.\n"

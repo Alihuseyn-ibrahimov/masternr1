@@ -29,7 +29,7 @@ FALLBACK_REPLY = (
     "Sorğunuzu operatora ötürdüm, tezliklə sizinlə əlaqə saxlanılacaq."
 )
 
-APPOINTMENT_ACK = "Məlumatlarınızı qeyd etdim, randevunuz üçün sizinlə əlaqə saxlanılacaq."
+APPOINTMENT_ACK = "Məlumatlarınızı qeyd etdim, tezliklə sizinlə əlaqə saxlanılacaq."
 HANDOFF_ACK = "Sizi bir operatorumuza yönləndirirəm, bir az gözləyin."
 
 TOOLS = [
@@ -38,7 +38,7 @@ TOOLS = [
         "function": {
             "name": "create_appointment_request",
             "description": (
-                "Müştəri randevu istədikdə və lazımi məlumatları verdikdə çağır. "
+                "Müştəri randevu/qeydiyyat istədikdə və lazımi məlumatları verdikdə çağır. "
                 "Ən azı ad və telefon nömrəsi toplanmalıdır."
             ),
             "parameters": {
@@ -48,7 +48,7 @@ TOOLS = [
                     "phone": {"type": "string", "description": "Əlaqə nömrəsi"},
                     "service": {
                         "type": "string",
-                        "description": "İstənilən xidmət (varsa)",
+                        "description": "İstənilən xidmət/proqram (varsa)",
                     },
                     "preferred_time": {
                         "type": "string",

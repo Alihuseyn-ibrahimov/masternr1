@@ -26,11 +26,11 @@ def _send(chat_id: str, text: str) -> None:
 def notify_appointment(appointment) -> None:
     clinic = appointment.clinic
     text = (
-        "🗓 <b>Yeni randevu sorğusu</b>\n"
-        f"Klinika: {clinic.name}\n"
+        "🗓 <b>Yeni sorğu (randevu/qeydiyyat)</b>\n"
+        f"Müəssisə: {clinic.name}\n"
         f"Ad: {appointment.customer_name}\n"
         f"Telefon: {appointment.phone}\n"
-        f"Xidmət: {appointment.service_text or '—'}\n"
+        f"Xidmət/proqram: {appointment.service_text or '—'}\n"
         f"İstənilən vaxt: {appointment.preferred_time_text or '—'}"
     )
     _send(clinic.telegram_chat_id, text)
@@ -40,7 +40,7 @@ def notify_handoff(conversation, reason: str) -> None:
     clinic = conversation.clinic
     text = (
         "🙋 <b>Operatora ötürüldü</b>\n"
-        f"Klinika: {clinic.name}\n"
+        f"Müəssisə: {clinic.name}\n"
         f"Kanal: {conversation.get_channel_display()}\n"
         f"Müştəri: {conversation.external_user_id}\n"
         f"Səbəb: {reason}"

@@ -42,7 +42,7 @@
 <header>
     <span class="brand">KlinikBot</span>
     <a href="{% url 'inbox:conversation_list' %}">Danışıqlar</a>
-    <a href="{% url 'inbox:appointment_list' %}">Randevu sorğuları</a>
+    <a href="{% url 'inbox:appointment_list' %}">Sorğular</a>
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}
         <button type="submit">Çıxış ({{ user.username }})</button>
     </form>
