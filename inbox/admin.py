@@ -1,11 +1,11 @@
 from django.contrib import admin
 
-from .models import ClinicMembership
+from .models import BusinessMembership
 
 
-@admin.register(ClinicMembership)
-class ClinicMembershipAdmin(admin.ModelAdmin):
-    list_display = ("user", "clinic")
-    list_filter = ("clinic",)
-    search_fields = ("user__username", "clinic__name")
-    autocomplete_fields = ("clinic",)
+@admin.register(BusinessMembership)
+class BusinessMembershipAdmin(admin.ModelAdmin):
+    list_display = ("user", "business")
+    list_filter = ("business",)
+    search_fields = ("user__username", "business__name")
+    autocomplete_fields = ("business",)

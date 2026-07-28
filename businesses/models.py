@@ -1,8 +1,8 @@
 from django.db import models
 
 
-class Clinic(models.Model):
-    """Tenant: hər klinika/salon və onun bilik bazasının kökü."""
+class Business(models.Model):
+    """Tenant: hər müəssisə (kurs, salon, mərkəz) və onun bilik bazasının kökü."""
 
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
@@ -17,14 +17,15 @@ class Clinic(models.Model):
     )
     staff_label = models.CharField(
         max_length=100,
-        default="Həkimlər / Mütəxəssislər",
+        default="Komanda",
         help_text='Sistem promptunda komanda bölməsinin başlığı (məs. "Repetitorlar")',
     )
     guardrail_text = models.TextField(
         blank=True,
         help_text=(
-            "Xüsusi qadağa qaydası (məs. nəticə zəmanəti vermə). Boş qalsa "
-            "defolt tibbi məsləhət qadağası tətbiq olunur."
+            "Bu müəssisə üçün qəti qadağa qaydası (məs. nəticə zəmanəti vermə). "
+            "Boş qalsa ümumi ehtiyatlı defolt tətbiq olunur — hər tenant üçün "
+            "öz qaydasını yazmaq tövsiyə olunur."
         ),
     )
 
@@ -43,8 +44,8 @@ class Clinic(models.Model):
 
 
 class Service(models.Model):
-    clinic = models.ForeignKey(
-        Clinic, on_delete=models.CASCADE, related_name="services"
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="services"
     )
     name = models.CharField(max_length=200)
     price_text = models.CharField(
@@ -56,12 +57,12 @@ class Service(models.Model):
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.name} ({self.clinic.name})"
+        return f"{self.name} ({self.business.name})"
 
 
-class Doctor(models.Model):
-    clinic = models.ForeignKey(
-        Clinic, on_delete=models.CASCADE, related_name="doctors"
+class StaffMember(models.Model):
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="staff_members"
     )
     name = models.CharField(max_length=200)
     specialty = models.CharField(max_length=200, blank=True)
@@ -69,12 +70,12 @@ class Doctor(models.Model):
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.name} ({self.clinic.name})"
+        return f"{self.name} ({self.business.name})"
 
 
 class FAQItem(models.Model):
-    clinic = models.ForeignKey(
-        Clinic, on_delete=models.CASCADE, related_name="faq_items"
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="faq_items"
     )
     question = models.CharField(max_length=300)
     answer = models.TextField()

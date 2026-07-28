@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}KlinikBot{% endblock %}</title>
+    <title>{% block title %}MasterNR1{% endblock %}</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: system-ui, -apple-system, sans-serif; margin: 0;
@@ -40,9 +40,9 @@
 <body>
 {% if user.is_authenticated %}
 <header>
-    <span class="brand">KlinikBot</span>
+    <span class="brand">MasterNR1</span>
     <a href="{% url 'inbox:conversation_list' %}">Danışıqlar</a>
-    <a href="{% url 'inbox:appointment_list' %}">Sorğular</a>
+    <a href="{% url 'inbox:request_list' %}">Sorğular</a>
     <form method="post" action="{% url 'logout' %}">{% csrf_token %}
         <button type="submit">Çıxış ({{ user.username }})</button>
     </form>

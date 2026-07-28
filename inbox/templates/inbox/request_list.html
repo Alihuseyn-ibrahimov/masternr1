@@ -1,21 +1,21 @@
 {% extends "inbox/base.html" %}
-{% block title %}Sorğular — KlinikBot{% endblock %}
+{% block title %}Sorğular — MasterNR1{% endblock %}
 {% block content %}
 <h2>Sorğular</h2>
 <div class="card">
     <table>
         <thead>
             <tr><th>Ad</th><th>Telefon</th><th>Xidmət</th><th>İstənilən vaxt</th>
-                <th>Klinika</th><th>Status</th><th>Tarix</th></tr>
+                <th>Müəssisə</th><th>Status</th><th>Tarix</th></tr>
         </thead>
         <tbody>
-        {% for a in appointments %}
+        {% for a in customer_requests %}
             <tr>
                 <td>{{ a.customer_name }}</td>
                 <td>{{ a.phone }}</td>
                 <td>{{ a.service_text|default:"—" }}</td>
                 <td>{{ a.preferred_time_text|default:"—" }}</td>
-                <td>{{ a.clinic.name }}</td>
+                <td>{{ a.business.name }}</td>
                 <td>{{ a.get_status_display }}</td>
                 <td>{{ a.created_at|date:"d.m.Y H:i" }}</td>
             </tr>

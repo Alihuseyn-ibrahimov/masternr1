@@ -1,29 +1,30 @@
-# KlinikBot — operativ təlimat
+# MasterNR1 — operativ təlimat
 
 AZ-dilli AI müştəri köməkçisi: WhatsApp + Instagram DM-ə gələn sorğulara bilik
 bazasından cavab verir, randevu/qeydiyyat sorğusu yığır, lazım olanda operatora
 ötürür. Managed SaaS, multi-tenant.
 
-**Dizayn sənədi:** `docs/superpowers/specs/2026-07-18-clinic-assistant-design.md`
-**Plan:** `.planning/2026-07-18-klinikbot-mvp/task_plan.md`
+**Dizayn sənədi:** `docs/superpowers/specs/2026-07-18-masternr1-assistant-design.md`
+**Plan:** `.planning/2026-07-18-masternr1-mvp/task_plan.md`
 
 ## Vəziyyət
 
-- Faza 1-4 **tamam**, 50/50 test keçir. Faza 5 (VPS deploy) qalır.
+- Faza 1-4 **tamam**, 52/52 test keçir. Faza 5 (VPS deploy) qalır.
 - Uçdan-uca canlı WhatsApp axını bir dəfə tam təsdiqlənib (Meta test nömrəsi ilə).
 - **Aktiv pilot: Master NR 1 Tədris Mərkəzi** (magistratura/doktorantura/DQ hazırlıq).
-  Təsisçidən razılıq var, görüş gözlənilir. Əvvəlki namizəd (Profclinic diş
-  klinikası) hazırda aktiv deyil.
-- Kod klinikaya bağlı deyil — `Clinic` modeli istənilən müəssisə üçün tenant-dır.
+  Təsisçidən razılıq var, görüş gözlənilir.
+- Kod bir sahəyə bağlı deyil — `Business` modeli istənilən müəssisə üçün tenant-dır.
+  Sistem multi-tenant qalır: gələcəkdə ikinci müştəri əlavə etmək kod dəyişikliyi
+  tələb etmir, yalnız yeni `Business` yazısı + kanal ID-si lazımdır.
 
 ## Əmrlər
 
 Bash tool-un cari qovluğu qorunmadığı üçün tam yol işlət:
 
 ```bash
-P="C:/Users/Alihuseyn Ibrahimov/PycharmProjects/Quantum/clinic_assistant"
+P="C:/Users/Alihuseyn Ibrahimov/PycharmProjects/Quantum/masternr1"
 
-"$P/.venv/Scripts/python" "$P/manage.py" test          # 50 test
+"$P/.venv/Scripts/python" "$P/manage.py" test          # 52 test
 "$P/.venv/Scripts/python" "$P/manage.py" migrate
 "$P/.venv/Scripts/python" "$P/manage.py" makemigrations
 "$P/.venv/Scripts/python" "$P/manage.py" runserver 8055
@@ -32,17 +33,17 @@ P="C:/Users/Alihuseyn Ibrahimov/PycharmProjects/Quantum/clinic_assistant"
 PYTHONIOENCODING=utf-8 "$P/.venv/Scripts/python" "$P/manage.py" seed_masternr1
 ```
 
-**Seed komandaları** (yalnız lokal test, `DEPLOY.md`-yə daxil deyil):
-- `seed_masternr1` — Master NR 1 tenant-ı (operator: `masternr1` / `demopass123`)
-- `seed_demo` — köhnə diş klinikası demosu
+**Seed komandası** (yalnız lokal test, `DEPLOY.md`-yə daxil deyil):
+- `seed_masternr1` — Master NR 1 tenant-ı (operator: `masternr1` / `demopass123`).
+  Qiymət/ünvan/FAQ sahələri PLACEHOLDER-dir — görüşdən sonra admin-dən doldurulur.
 
 ## Struktur
 
 | App | Məsuliyyət |
 |---|---|
-| `clinics` | Tenant (`Clinic`) + bilik bazası: `Service`, `Doctor`, `FAQItem` |
+| `businesses` | Tenant (`Business`) + bilik bazası: `Service`, `StaffMember`, `FAQItem` |
 | `channels` | Meta webhook (GET verify + POST), imza yoxlanışı, dedup, göndərmə, Celery task |
-| `assistant` | `Conversation`, `Message`, `AppointmentRequest`; sistem promptu; Groq tool-use agenti; Telegram bildirişləri |
+| `assistant` | `Conversation`, `Message`, `CustomerRequest`; sistem promptu; Groq tool-use agenti; Telegram bildirişləri |
 | `inbox` | Operator paneli: danışıqlar, cavab yazma, bot pauzası, sorğular siyahısı |
 
 Əsas fayllar: `assistant/responder.py` (agent), `assistant/prompt.py` (sistem promptu),
@@ -50,25 +51,26 @@ PYTHONIOENCODING=utf-8 "$P/.venv/Scripts/python" "$P/manage.py" seed_masternr1
 
 ## Multi-tenant marşrutlaşdırma — diqqət
 
-Gələn mesaj `whatsapp_phone_number_id` / `instagram_page_id` ilə klinikaya bağlanır.
-**Bir `phone_number_id` yalnız BİR klinikada ola bilər** — eyni ID iki tenant-a
+Gələn mesaj `whatsapp_phone_number_id` / `instagram_page_id` ilə müəssisəyə bağlanır.
+**Bir `phone_number_id` yalnız BİR müəssisədə ola bilər** — eyni ID iki tenant-a
 yazılsa marşrutlaşdırma pozulur. Yeni tenant seed edəndə köhnəsinin ID-sini boşalt
 (`seed_masternr1` bunu özü edir).
 
 ## Prompt fərdiləşdirmə (yeni müəssisə üçün)
 
-Kod dəyişmədən `Clinic` sahələri ilə idarə olunur:
+Kod dəyişmədən `Business` sahələri ilə idarə olunur:
 
-- `staff_label` — komanda bölməsinin başlığı (klinikada "Həkimlər", kursda
+- `staff_label` — komanda bölməsinin başlığı (defolt "Komanda"; kursda
   "Repetitorlar / Müəllimlər")
-- `guardrail_text` — **qəti qadağa qaydası**. Boş qalsa tibbi məsləhət qadağası
-  tətbiq olunur. Kursda: qəbul/nəticə zəmanəti verməmək.
+- `guardrail_text` — **qəti qadağa qaydası**. Boş qalsa ümumi ehtiyatlı defolt
+  işləyir (səlahiyyətdən kənar peşəkar məsləhət vermə + zəmanət vermə).
+  Kursda: qəbul/nəticə zəmanəti verməmək.
 
 Guardrail hər tenant üçün mütləqdir — hüquqi risk buradadır.
 
 ## Agent davranışı
 
-İki alət var: `create_appointment_request` (ad+telefon mütləq) və
+İki alət var: `create_customer_request` (ad+telefon mütləq) və
 `handoff_to_operator` (botu pauza edir). Alət çağırılmasa — adi mətn cavabı.
 LLM xətası → `FALLBACK_REPLY` + Telegram alert. Tarixçə: son 20 mesaj.
 
@@ -115,6 +117,6 @@ Prod-da PostgreSQL keçidi (`dj-database-url`) hələ edilməyib — Faza 5 işi
 
 Canlı test edəndə nəticəni **mesaj mətninə görə qiymətləndirmə**. Fallback mesajı
 uğurlu cavaba oxşaya bilər. Həmişə yoxla:
-- DB-də `Message` / `AppointmentRequest` yazıları
+- DB-də `Message` / `CustomerRequest` yazıları
 - `Conversation.bot_paused` vəziyyəti
 - server logları (`tool_use_failed`, `rate_limit_exceeded` kimi xətalar)

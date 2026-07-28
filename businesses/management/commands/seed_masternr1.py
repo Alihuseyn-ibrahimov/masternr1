@@ -1,4 +1,4 @@
-"""Master NR 1 (magistratura/doktorantura hazırlıq kursu) pilot demo klinikası.
+"""Master NR 1 (magistratura/doktorantura hazırlıq kursu) pilot demo müəssisəsi.
 
 İstifadə:
     python manage.py seed_masternr1 --phone-number-id 1191771390689506
@@ -6,20 +6,20 @@
 QEYD: Aşağıdakı qiymətlər/proqramlar PLACEHOLDER-dir — real demo/görüşdən əvvəl
 Django admin-dən həqiqi məlumatlarla (qiymət, qrup vaxtları, FAQ) əvəz edilməlidir.
 
-Eyni Meta test WhatsApp nömrəsi yalnız BİR klinikaya bağlana bilər (routing
+Eyni Meta test WhatsApp nömrəsi yalnız BİR müəssisəyə bağlana bilər (routing
 whatsapp_phone_number_id ilə tək-tək axtarılır), ona görə köhnə demo-dent
-klinikasının nömrəsi bu skriptdə boşaldılır.
+müəssisəsinin nömrəsi bu skriptdə boşaldılır.
 """
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from clinics.models import Clinic, Doctor, FAQItem, Service
-from inbox.models import ClinicMembership
+from businesses.models import Business, StaffMember, FAQItem, Service
+from inbox.models import BusinessMembership
 
 
 class Command(BaseCommand):
-    help = "Master NR 1 tədris mərkəzi üçün demo klinika və operator istifadəçisi yaradır"
+    help = "Master NR 1 tədris mərkəzi üçün demo müəssisə və operator istifadəçisi yaradır"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -32,12 +32,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         # Eyni test nömrəsi ilə routing konflikti olmasın deyə köhnə demo
-        # klinikanın nömrəsini boşaldırıq (yalnız lokal test üçündür).
-        Clinic.objects.filter(
+        # müəssisənin nömrəsini boşaldırıq (yalnız lokal test üçündür).
+        Business.objects.filter(
             whatsapp_phone_number_id=opts["phone_number_id"]
         ).exclude(slug="master-nr-1").update(whatsapp_phone_number_id="")
 
-        clinic, created = Clinic.objects.update_or_create(
+        business, created = Business.objects.update_or_create(
             slug="master-nr-1",
             defaults={
                 "name": "Master NR 1 Tədris Mərkəzi",
@@ -61,44 +61,44 @@ class Command(BaseCommand):
             },
         )
 
-        clinic.services.all().delete()
+        business.services.all().delete()
         Service.objects.bulk_create(
             [
                 Service(
-                    clinic=clinic,
+                    business=business,
                     name="Magistratura hazırlıq kursu",
                     price_text="Qiymət (görüşdən sonra doldurulacaq)",
                 ),
                 Service(
-                    clinic=clinic,
+                    business=business,
                     name="Doktorantura hazırlıq kursu",
                     price_text="Qiymət (görüşdən sonra doldurulacaq)",
                 ),
                 Service(
-                    clinic=clinic,
+                    business=business,
                     name="Dövlət Qulluğu (DQ) hazırlıq kursu",
                     price_text="Qiymət (görüşdən sonra doldurulacaq)",
                 ),
             ]
         )
 
-        clinic.doctors.all().delete()
-        Doctor.objects.create(
-            clinic=clinic,
+        business.staff_members.all().delete()
+        StaffMember.objects.create(
+            business=business,
             name="Repetitor (nümunə)",
             specialty="Fənn (görüşdən sonra dəqiqləşdir)",
         )
 
-        clinic.faq_items.all().delete()
+        business.faq_items.all().delete()
         FAQItem.objects.bulk_create(
             [
                 FAQItem(
-                    clinic=clinic,
+                    business=business,
                     question="Dərslər online, yoxsa oflayn keçirilir?",
                     answer="TODO: görüşdən sonra doldur.",
                 ),
                 FAQItem(
-                    clinic=clinic,
+                    business=business,
                     question="Qrup nə vaxt başlayır?",
                     answer="TODO: görüşdən sonra doldur.",
                 ),
@@ -113,11 +113,11 @@ class Command(BaseCommand):
         user.is_staff = True
         user.is_superuser = True
         user.save()
-        ClinicMembership.objects.get_or_create(user=user, clinic=clinic)
+        BusinessMembership.objects.get_or_create(user=user, business=business)
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"OK: '{clinic.name}' (phone_number_id={clinic.whatsapp_phone_number_id}); "
+                f"OK: '{business.name}' (phone_number_id={business.whatsapp_phone_number_id}); "
                 f"operator: {opts['username']} / {opts['password']}\n"
                 "DİQQƏT: qiymət/ünvan/FAQ sahələri PLACEHOLDER-dir — "
                 "Django admin-dən real məlumatla doldur."

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AppointmentRequest, Conversation, Message
+from .models import CustomerRequest, Conversation, Message
 
 
 class MessageInline(admin.TabularInline):
@@ -13,29 +13,29 @@ class MessageInline(admin.TabularInline):
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     list_display = (
-        "clinic",
+        "business",
         "channel",
         "external_user_id",
         "customer_name",
         "bot_paused",
         "updated_at",
     )
-    list_filter = ("clinic", "channel", "bot_paused")
+    list_filter = ("business", "channel", "bot_paused")
     search_fields = ("external_user_id", "customer_name")
     inlines = [MessageInline]
 
 
-@admin.register(AppointmentRequest)
-class AppointmentRequestAdmin(admin.ModelAdmin):
+@admin.register(CustomerRequest)
+class CustomerRequestAdmin(admin.ModelAdmin):
     list_display = (
         "customer_name",
         "phone",
         "service_text",
         "preferred_time_text",
-        "clinic",
+        "business",
         "status",
         "created_at",
     )
-    list_filter = ("clinic", "status")
+    list_filter = ("business", "status")
     search_fields = ("customer_name", "phone")
     list_editable = ("status",)

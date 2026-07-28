@@ -2,77 +2,92 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from clinics.models import Clinic, Doctor, FAQItem, Service
+from businesses.models import Business, FAQItem, Service, StaffMember
 
 from . import responder
-from .models import AppointmentRequest, Conversation, Message
+from .models import Conversation, CustomerRequest, Message
 from .prompt import build_system_prompt
 
 
-def make_clinic():
-    clinic = Clinic.objects.create(
-        name="Dent Klinika",
-        slug="dent-klinika",
+def make_business(**overrides):
+    defaults = dict(
+        name="Test Tədris Mərkəzi",
+        slug="test-tedris-merkezi",
         address="Bakı, Nizami küç. 5",
         phone="+994501234567",
-        working_hours_text="B.e-Şənbə 09:00-19:00, Bazar bağlı",
-        extra_info="Pulsuz parkinq var.",
+        working_hours_text="B.e-Şənbə 10:00-19:00, Bazar bağlı",
+        extra_info="Onlayn qruplar da var.",
+        staff_label="Repetitorlar",
+    )
+    defaults.update(overrides)
+    business = Business.objects.create(**defaults)
+    Service.objects.create(
+        business=business, name="Magistratura hazırlığı", price_text="300 AZN"
     )
     Service.objects.create(
-        clinic=clinic, name="Diş təmizliyi", price_text="50 AZN"
+        business=business,
+        name="Doktorantura hazırlığı",
+        price_text="500 AZN-dən",
+        description="İlk dərs pulsuzdur",
     )
     Service.objects.create(
-        clinic=clinic,
-        name="İmplant",
-        price_text="800 AZN-dən",
-        description="Konsultasiya pulsuzdur",
+        business=business, name="Köhnə kurs", price_text="1 AZN", is_active=False
     )
-    Service.objects.create(
-        clinic=clinic, name="Köhnə xidmət", price_text="1 AZN", is_active=False
-    )
-    Doctor.objects.create(
-        clinic=clinic, name="Dr. Aysel Məmmədova", specialty="Ortodont"
+    StaffMember.objects.create(
+        business=business, name="Aysel Məmmədova", specialty="Riyaziyyat"
     )
     FAQItem.objects.create(
-        clinic=clinic,
+        business=business,
         question="Kartla ödəniş olur?",
         answer="Bəli, nağd və kartla ödəniş mümkündür.",
     )
-    return clinic
+    return business
 
 
 class BuildSystemPromptTests(TestCase):
     def setUp(self):
-        self.clinic = make_clinic()
-        self.prompt = build_system_prompt(self.clinic)
+        self.business = make_business()
+        self.prompt = build_system_prompt(self.business)
 
-    def test_contains_clinic_core_info(self):
+    def test_contains_business_core_info(self):
         for fragment in [
-            "Dent Klinika",
+            "Test Tədris Mərkəzi",
             "Bakı, Nizami küç. 5",
             "+994501234567",
-            "B.e-Şənbə 09:00-19:00",
-            "Pulsuz parkinq var.",
+            "B.e-Şənbə 10:00-19:00",
+            "Onlayn qruplar da var.",
         ]:
             self.assertIn(fragment, self.prompt)
 
     def test_contains_active_services_with_prices(self):
-        self.assertIn("Diş təmizliyi", self.prompt)
-        self.assertIn("50 AZN", self.prompt)
-        self.assertIn("İmplant", self.prompt)
-        self.assertIn("800 AZN-dən", self.prompt)
+        self.assertIn("Magistratura hazırlığı", self.prompt)
+        self.assertIn("300 AZN", self.prompt)
+        self.assertIn("Doktorantura hazırlığı", self.prompt)
+        self.assertIn("500 AZN-dən", self.prompt)
 
     def test_excludes_inactive_services(self):
-        self.assertNotIn("Köhnə xidmət", self.prompt)
+        self.assertNotIn("Köhnə kurs", self.prompt)
 
-    def test_contains_doctors_and_faq(self):
-        self.assertIn("Dr. Aysel Məmmədova", self.prompt)
-        self.assertIn("Ortodont", self.prompt)
+    def test_contains_staff_members_and_faq(self):
+        self.assertIn("Aysel Məmmədova", self.prompt)
+        self.assertIn("Riyaziyyat", self.prompt)
         self.assertIn("Kartla ödəniş olur?", self.prompt)
         self.assertIn("nağd və kartla", self.prompt)
 
-    def test_contains_medical_advice_guardrail(self):
-        self.assertIn("tibbi məsləhət", self.prompt.lower())
+    def test_uses_configured_staff_label(self):
+        self.assertIn("Repetitorlar", self.prompt)
+
+    def test_default_guardrail_applies_when_blank(self):
+        self.assertIn("zəmanət", self.prompt.lower())
+
+    def test_custom_guardrail_replaces_default(self):
+        business = make_business(
+            slug="ozel-guardrail",
+            guardrail_text="Qəbul faizinə zəmanət vermə.",
+        )
+        prompt = build_system_prompt(business)
+        self.assertIn("Qəbul faizinə zəmanət vermə.", prompt)
+        self.assertNotIn("tibbi", prompt.lower())
 
     def test_azerbaijani_language_instruction(self):
         self.assertIn("Azərbaycan dilində", self.prompt)
@@ -80,11 +95,11 @@ class BuildSystemPromptTests(TestCase):
 
 class ConversationModelTests(TestCase):
     def setUp(self):
-        self.clinic = make_clinic()
+        self.business = make_business()
 
     def test_conversation_defaults(self):
         conv = Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.WHATSAPP,
             external_user_id="994501112233",
         )
@@ -95,20 +110,20 @@ class ConversationModelTests(TestCase):
         from django.db import IntegrityError
 
         Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.WHATSAPP,
             external_user_id="994501112233",
         )
         with self.assertRaises(IntegrityError):
             Conversation.objects.create(
-                clinic=self.clinic,
+                business=self.business,
                 channel=Conversation.Channel.WHATSAPP,
                 external_user_id="994501112233",
             )
 
     def test_message_ordering_is_chronological(self):
         conv = Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.INSTAGRAM,
             external_user_id="ig-123",
         )
@@ -120,21 +135,21 @@ class ConversationModelTests(TestCase):
         )
         self.assertEqual(list(conv.messages.all()), [first, second])
 
-    def test_appointment_request_defaults_to_new(self):
+    def test_customer_request_request_defaults_to_new(self):
         conv = Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.WHATSAPP,
             external_user_id="994501112233",
         )
-        req = AppointmentRequest.objects.create(
-            clinic=self.clinic,
+        req = CustomerRequest.objects.create(
+            business=self.business,
             conversation=conv,
             customer_name="Orxan",
             phone="+994551234567",
             service_text="İmplant konsultasiyası",
             preferred_time_text="çərşənbə axşamüstü",
         )
-        self.assertEqual(req.status, AppointmentRequest.Status.NEW)
+        self.assertEqual(req.status, CustomerRequest.Status.NEW)
 
 
 # --- Fake Groq client (OpenAI-uyğun tool-use agentini test etmək üçün) ---
@@ -206,9 +221,9 @@ def tool_call_response(name, arguments, call_id="call_1"):
 
 class AgentTests(TestCase):
     def setUp(self):
-        self.clinic = make_clinic()
+        self.business = make_business()
         self.conv = Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.WHATSAPP,
             external_user_id="994501112233",
         )
@@ -219,10 +234,10 @@ class AgentTests(TestCase):
         )
 
     def test_plain_answer_returned(self):
-        self._add_customer_msg("Diş təmizliyi neçəyədir?")
-        client = FakeClient([text_response("Diş təmizliyi 50 AZN-dir.")])
+        self._add_customer_msg("Magistratura hazırlığı neçəyədir?")
+        client = FakeClient([text_response("Magistratura hazırlığı 300 AZN-dir.")])
         reply = responder.generate_reply(self.conv, client=client)
-        self.assertEqual(reply, "Diş təmizliyi 50 AZN-dir.")
+        self.assertEqual(reply, "Magistratura hazırlığı 300 AZN-dir.")
 
     def test_history_maps_roles_and_starts_with_user(self):
         # Bot mesajı əvvəldə olsa da, ilk mesaj user olmalıdır
@@ -237,15 +252,15 @@ class AgentTests(TestCase):
         self.assertEqual(sent[1]["role"], "user")
         self.assertEqual(sent[1]["content"], "Salam")
 
-    @patch("assistant.notifications.notify_appointment")
-    def test_appointment_tool_creates_request_and_notifies(self, mock_notify):
-        self._add_customer_msg("Sabaha randevu istəyirəm, Orxan, 0551234567")
+    @patch("assistant.notifications.notify_request")
+    def test_customer_request_tool_creates_request_and_notifies(self, mock_notify):
+        self._add_customer_msg("Qeydiyyatdan keçmək istəyirəm, Orxan, 0551234567")
         tool_use = tool_call_response(
-            "create_appointment_request",
+            "create_customer_request",
             {
                 "customer_name": "Orxan",
                 "phone": "0551234567",
-                "service": "diş təmizliyi",
+                "service": "magistratura hazırlığı",
                 "preferred_time": "sabah",
             },
             call_id="toolu_1",
@@ -255,10 +270,10 @@ class AgentTests(TestCase):
 
         reply = responder.generate_reply(self.conv, client=client)
 
-        appt = AppointmentRequest.objects.get()
-        self.assertEqual(appt.customer_name, "Orxan")
-        self.assertEqual(appt.phone, "0551234567")
-        self.assertEqual(appt.clinic, self.clinic)
+        req = CustomerRequest.objects.get()
+        self.assertEqual(req.customer_name, "Orxan")
+        self.assertEqual(req.phone, "0551234567")
+        self.assertEqual(req.business, self.business)
         mock_notify.assert_called_once()
         self.assertIn("qeyd etdim", reply)
         # İkinci çağırışda tool_result göndərilib

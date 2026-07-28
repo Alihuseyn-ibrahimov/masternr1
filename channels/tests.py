@@ -7,7 +7,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from assistant.models import Conversation, Message
-from clinics.models import Clinic
+from businesses.models import Business
 
 from . import fixtures_payloads as fx
 from .parsing import parse_webhook
@@ -87,8 +87,8 @@ class WebhookViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.url = reverse("meta_webhook")
-        self.clinic = Clinic.objects.create(
-            name="Dent Klinika",
+        self.business = Business.objects.create(
+            name="Test Tədris Mərkəzi",
             slug="dent",
             whatsapp_phone_number_id="PHONE_NUMBER_ID",
             instagram_page_id="IG_PAGE_ID",
@@ -146,7 +146,7 @@ class WebhookViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
 
         conv = Conversation.objects.get()
-        self.assertEqual(conv.clinic, self.clinic)
+        self.assertEqual(conv.business, self.business)
         self.assertEqual(conv.channel, Conversation.Channel.WHATSAPP)
         roles = list(conv.messages.values_list("role", flat=True))
         self.assertEqual(roles, [Message.Role.CUSTOMER, Message.Role.BOT])
@@ -165,7 +165,7 @@ class WebhookViewTests(TestCase):
     @patch("channels.tasks.send_reply")
     def test_bot_paused_conversation_no_reply(self, mock_send):
         Conversation.objects.create(
-            clinic=self.clinic,
+            business=self.business,
             channel=Conversation.Channel.WHATSAPP,
             external_user_id="994501112233",
             bot_paused=True,

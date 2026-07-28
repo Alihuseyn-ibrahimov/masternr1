@@ -1,6 +1,6 @@
 from django.db import models
 
-from clinics.models import Clinic
+from businesses.models import Business
 
 
 class Conversation(models.Model):
@@ -8,8 +8,8 @@ class Conversation(models.Model):
         WHATSAPP = "whatsapp", "WhatsApp"
         INSTAGRAM = "instagram", "Instagram"
 
-    clinic = models.ForeignKey(
-        Clinic, on_delete=models.CASCADE, related_name="conversations"
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="conversations"
     )
     channel = models.CharField(max_length=20, choices=Channel.choices)
     external_user_id = models.CharField(
@@ -28,13 +28,13 @@ class Conversation(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["clinic", "channel", "external_user_id"],
+                fields=["business", "channel", "external_user_id"],
                 name="unique_conversation_per_channel_user",
             )
         ]
 
     def __str__(self):
-        return f"{self.clinic.name} / {self.channel} / {self.external_user_id}"
+        return f"{self.business.name} / {self.channel} / {self.external_user_id}"
 
 
 class Message(models.Model):
@@ -62,21 +62,21 @@ class Message(models.Model):
         return f"[{self.role}] {self.text[:50]}"
 
 
-class AppointmentRequest(models.Model):
+class CustomerRequest(models.Model):
     class Status(models.TextChoices):
         NEW = "new", "Yeni"
         CONFIRMED = "confirmed", "Təsdiqləndi"
         REJECTED = "rejected", "İmtina"
 
-    clinic = models.ForeignKey(
-        Clinic, on_delete=models.CASCADE, related_name="appointment_requests"
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="customer_requests"
     )
     conversation = models.ForeignKey(
         Conversation,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="appointment_requests",
+        related_name="customer_requests",
     )
     customer_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=50)

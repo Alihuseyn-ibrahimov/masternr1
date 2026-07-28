@@ -13,7 +13,7 @@ from assistant.models import Conversation
 class IncomingMessage:
     channel: str  # Conversation.Channel dəyəri
     external_user_id: str  # göndərən müştəri (WA nömrəsi / IG user id)
-    routing_id: str  # klinikanı tapmaq üçün (WA phone_number_id / IG page id)
+    routing_id: str  # müəssisəni tapmaq üçün (WA phone_number_id / IG page id)
     external_message_id: str
     text: str
     is_text: bool  # False → mətn olmayan (şəkil, audio və s.)

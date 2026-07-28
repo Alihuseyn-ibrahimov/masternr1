@@ -1,16 +1,16 @@
 {% extends "inbox/base.html" %}
-{% block title %}Danışıqlar — KlinikBot{% endblock %}
+{% block title %}Danışıqlar — MasterNR1{% endblock %}
 {% block content %}
 <h2>Danışıqlar</h2>
 <div class="card">
     <table>
         <thead>
-            <tr><th>Klinika</th><th>Kanal</th><th>Müştəri</th><th>Bot</th><th>Yenilənmə</th></tr>
+            <tr><th>Müəssisə</th><th>Kanal</th><th>Müştəri</th><th>Bot</th><th>Yenilənmə</th></tr>
         </thead>
         <tbody>
         {% for c in conversations %}
             <tr>
-                <td><a href="{% url 'inbox:conversation_detail' c.pk %}">{{ c.clinic.name }}</a></td>
+                <td><a href="{% url 'inbox:conversation_detail' c.pk %}">{{ c.business.name }}</a></td>
                 <td>{{ c.get_channel_display }}</td>
                 <td>{{ c.customer_name|default:c.external_user_id }}</td>
                 <td>

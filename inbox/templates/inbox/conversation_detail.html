@@ -1,11 +1,11 @@
 {% extends "inbox/base.html" %}
-{% block title %}Danışıq — KlinikBot{% endblock %}
+{% block title %}Danışıq — MasterNR1{% endblock %}
 {% block content %}
 <p><a href="{% url 'inbox:conversation_list' %}">← Danışıqlar</a></p>
 <div class="card">
     <div style="display:flex; align-items:center; gap:12px;">
         <div>
-            <strong>{{ conversation.clinic.name }}</strong> ·
+            <strong>{{ conversation.business.name }}</strong> ·
             {{ conversation.get_channel_display }} ·
             {{ conversation.customer_name|default:conversation.external_user_id }}
         </div>

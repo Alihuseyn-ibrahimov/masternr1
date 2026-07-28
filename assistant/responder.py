@@ -2,11 +2,11 @@
 
 Groq API OpenAI-uyğun formatdadır (chat.completions.create + tools).
 Agent üç davranışa malikdir:
-- adi mətn cavabı — klinikanın bilik bazasından cavab
-- `create_appointment_request` — randevu sorğusunu qeyd et + Telegram bildirişi
+- adi mətn cavabı — müəssisənin bilik bazasından cavab
+- `create_customer_request` — randevu sorğusunu qeyd et + Telegram bildirişi
 - `handoff_to_operator` — botu pauza et + operatora Telegram bildirişi
 
-Tibbi məsləhət qadağası system promptdadır (bax: `prompt.py`).
+Müəssisəyə xas qadağa qaydası (guardrail) system promptdadır (bax: `prompt.py`).
 Task interfeysi sabitdir: `generate_reply(conversation) -> str`.
 """
 
@@ -16,7 +16,7 @@ import logging
 from django.conf import settings
 
 from . import notifications
-from .models import AppointmentRequest, Conversation, Message
+from .models import Conversation, CustomerRequest, Message
 from .prompt import build_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,14 @@ FALLBACK_REPLY = (
     "Sorğunuzu operatora ötürdüm, tezliklə sizinlə əlaqə saxlanılacaq."
 )
 
-APPOINTMENT_ACK = "Məlumatlarınızı qeyd etdim, tezliklə sizinlə əlaqə saxlanılacaq."
+REQUEST_ACK = "Məlumatlarınızı qeyd etdim, tezliklə sizinlə əlaqə saxlanılacaq."
 HANDOFF_ACK = "Sizi bir operatorumuza yönləndirirəm, bir az gözləyin."
 
 TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "create_appointment_request",
+            "name": "create_customer_request",
             "description": (
                 "Müştəri randevu/qeydiyyat istədikdə və lazımi məlumatları verdikdə çağır. "
                 "Ən azı ad və telefon nömrəsi toplanmalıdır."
@@ -104,17 +104,17 @@ def _history_to_messages(conversation: Conversation) -> list[dict]:
 
 
 def _handle_tool(conversation: Conversation, name: str, tool_input: dict) -> str:
-    if name == "create_appointment_request":
-        appt = AppointmentRequest.objects.create(
-            clinic=conversation.clinic,
+    if name == "create_customer_request":
+        customer_request = CustomerRequest.objects.create(
+            business=conversation.business,
             conversation=conversation,
             customer_name=tool_input.get("customer_name", ""),
             phone=tool_input.get("phone", ""),
             service_text=tool_input.get("service", ""),
             preferred_time_text=tool_input.get("preferred_time", ""),
         )
-        notifications.notify_appointment(appt)
-        return APPOINTMENT_ACK
+        notifications.notify_request(customer_request)
+        return REQUEST_ACK
 
     if name == "handoff_to_operator":
         conversation.bot_paused = True
@@ -168,7 +168,7 @@ def _run_agent(client, conversation, system, messages) -> str:
 
 def generate_reply(conversation: Conversation, client=None) -> str:
     client = client or _get_client()
-    system = build_system_prompt(conversation.clinic)
+    system = build_system_prompt(conversation.business)
     messages = _history_to_messages(conversation)
     if not messages:
         return FALLBACK_REPLY

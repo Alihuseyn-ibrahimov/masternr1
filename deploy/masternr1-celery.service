@@ -1,0 +1,15 @@
+[Unit]
+Description=MasterNR1 Celery worker
+After=network.target redis-server.service
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/quantum/masternr1
+EnvironmentFile=/opt/quantum/masternr1/.env
+ExecStart=/opt/quantum/masternr1/.venv/bin/celery -A config worker \
+    --loglevel=info --concurrency=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=MasterNR1 web (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/quantum/masternr1
+EnvironmentFile=/opt/quantum/masternr1/.env
+ExecStart=/opt/quantum/masternr1/.venv/bin/gunicorn config.wsgi:application \
+    --bind 127.0.0.1:8060 --workers 3 --timeout 30
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

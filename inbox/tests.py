@@ -4,15 +4,15 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from assistant.models import AppointmentRequest, Conversation, Message
-from clinics.models import Clinic
+from assistant.models import CustomerRequest, Conversation, Message
+from businesses.models import Business
 
-from .models import ClinicMembership
+from .models import BusinessMembership
 
 
-def make_conversation(clinic, uid="994501112233"):
+def make_conversation(business, uid="994501112233"):
     return Conversation.objects.create(
-        clinic=clinic,
+        business=business,
         channel=Conversation.Channel.WHATSAPP,
         external_user_id=uid,
     )
@@ -20,8 +20,8 @@ def make_conversation(clinic, uid="994501112233"):
 
 class InboxAuthTests(TestCase):
     def setUp(self):
-        self.clinic = Clinic.objects.create(name="A Klinika", slug="a")
-        self.conv = make_conversation(self.clinic)
+        self.business = Business.objects.create(name="A Mərkəzi", slug="a")
+        self.conv = make_conversation(self.business)
 
     def test_list_requires_login(self):
         resp = self.client.get(reverse("inbox:conversation_list"))
@@ -37,22 +37,22 @@ class InboxAuthTests(TestCase):
 
 class InboxTenantIsolationTests(TestCase):
     def setUp(self):
-        self.clinic_a = Clinic.objects.create(name="A", slug="a")
-        self.clinic_b = Clinic.objects.create(name="B", slug="b")
-        self.conv_a = make_conversation(self.clinic_a, "a-user")
-        self.conv_b = make_conversation(self.clinic_b, "b-user")
+        self.business_a = Business.objects.create(name="A", slug="a")
+        self.business_b = Business.objects.create(name="B", slug="b")
+        self.conv_a = make_conversation(self.business_a, "a-user")
+        self.conv_b = make_conversation(self.business_b, "b-user")
 
         self.user = User.objects.create_user("operator_a", password="pw12345")
-        ClinicMembership.objects.create(user=self.user, clinic=self.clinic_a)
+        BusinessMembership.objects.create(user=self.user, business=self.business_a)
         self.client.force_login(self.user)
 
-    def test_list_shows_only_own_clinic(self):
+    def test_list_shows_only_own_business(self):
         resp = self.client.get(reverse("inbox:conversation_list"))
         convs = list(resp.context["conversations"])
         self.assertIn(self.conv_a, convs)
         self.assertNotIn(self.conv_b, convs)
 
-    def test_cannot_open_other_clinic_conversation(self):
+    def test_cannot_open_other_business_conversation(self):
         resp = self.client.get(
             reverse("inbox:conversation_detail", args=[self.conv_b.pk])
         )
@@ -69,10 +69,10 @@ class InboxTenantIsolationTests(TestCase):
 
 class OperatorReplyTests(TestCase):
     def setUp(self):
-        self.clinic = Clinic.objects.create(name="A", slug="a")
-        self.conv = make_conversation(self.clinic)
+        self.business = Business.objects.create(name="A", slug="a")
+        self.conv = make_conversation(self.business)
         self.user = User.objects.create_user("op", password="pw12345")
-        ClinicMembership.objects.create(user=self.user, clinic=self.clinic)
+        BusinessMembership.objects.create(user=self.user, business=self.business)
         self.client.force_login(self.user)
 
     @patch("inbox.views.send_reply")
@@ -97,8 +97,8 @@ class OperatorReplyTests(TestCase):
         mock_send.assert_not_called()
 
     @patch("inbox.views.send_reply")
-    def test_cannot_reply_to_other_clinic(self, mock_send):
-        other = Clinic.objects.create(name="B", slug="b")
+    def test_cannot_reply_to_other_business(self, mock_send):
+        other = Business.objects.create(name="B", slug="b")
         other_conv = make_conversation(other, "x")
         url = reverse("inbox:send_reply", args=[other_conv.pk])
         resp = self.client.post(url, {"text": "hi"})
@@ -117,19 +117,19 @@ class OperatorReplyTests(TestCase):
 
 class AppointmentListTests(TestCase):
     def setUp(self):
-        self.clinic = Clinic.objects.create(name="A", slug="a")
-        self.other = Clinic.objects.create(name="B", slug="b")
+        self.business = Business.objects.create(name="A", slug="a")
+        self.other = Business.objects.create(name="B", slug="b")
         self.user = User.objects.create_user("op", password="pw12345")
-        ClinicMembership.objects.create(user=self.user, clinic=self.clinic)
+        BusinessMembership.objects.create(user=self.user, business=self.business)
         self.client.force_login(self.user)
-        AppointmentRequest.objects.create(
-            clinic=self.clinic, customer_name="Mine", phone="1"
+        CustomerRequest.objects.create(
+            business=self.business, customer_name="Mine", phone="1"
         )
-        AppointmentRequest.objects.create(
-            clinic=self.other, customer_name="Theirs", phone="2"
+        CustomerRequest.objects.create(
+            business=self.other, customer_name="Theirs", phone="2"
         )
 
-    def test_only_own_appointments_listed(self):
-        resp = self.client.get(reverse("inbox:appointment_list"))
-        names = [a.customer_name for a in resp.context["appointments"]]
+    def test_only_own_customer_requests_listed(self):
+        resp = self.client.get(reverse("inbox:request_list"))
+        names = [a.customer_name for a in resp.context["customer_requests"]]
         self.assertEqual(names, ["Mine"])

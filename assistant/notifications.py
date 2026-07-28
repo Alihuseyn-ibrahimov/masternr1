@@ -1,4 +1,4 @@
-"""Klinika personalına Telegram bildirişləri (randevu sorğusu, operator handoff)."""
+"""Müəssisə personalına Telegram bildirişləri (randevu sorğusu, operator handoff)."""
 
 import logging
 
@@ -23,26 +23,26 @@ def _send(chat_id: str, text: str) -> None:
         logger.exception("Telegram bildirişi göndərilə bilmədi")
 
 
-def notify_appointment(appointment) -> None:
-    clinic = appointment.clinic
+def notify_request(customer_request) -> None:
+    business = customer_request.business
     text = (
         "🗓 <b>Yeni sorğu (randevu/qeydiyyat)</b>\n"
-        f"Müəssisə: {clinic.name}\n"
-        f"Ad: {appointment.customer_name}\n"
-        f"Telefon: {appointment.phone}\n"
-        f"Xidmət/proqram: {appointment.service_text or '—'}\n"
-        f"İstənilən vaxt: {appointment.preferred_time_text or '—'}"
+        f"Müəssisə: {business.name}\n"
+        f"Ad: {customer_request.customer_name}\n"
+        f"Telefon: {customer_request.phone}\n"
+        f"Xidmət/proqram: {customer_request.service_text or '—'}\n"
+        f"İstənilən vaxt: {customer_request.preferred_time_text or '—'}"
     )
-    _send(clinic.telegram_chat_id, text)
+    _send(business.telegram_chat_id, text)
 
 
 def notify_handoff(conversation, reason: str) -> None:
-    clinic = conversation.clinic
+    business = conversation.business
     text = (
         "🙋 <b>Operatora ötürüldü</b>\n"
-        f"Müəssisə: {clinic.name}\n"
+        f"Müəssisə: {business.name}\n"
         f"Kanal: {conversation.get_channel_display()}\n"
         f"Müştəri: {conversation.external_user_id}\n"
         f"Səbəb: {reason}"
     )
-    _send(clinic.telegram_chat_id, text)
+    _send(business.telegram_chat_id, text)

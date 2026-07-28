@@ -7,7 +7,7 @@ from django.conf import settings
 def send_text(phone_number_id: str, to: str, text: str) -> dict:
     """WhatsApp Cloud API ilə mətn mesajı göndərir.
 
-    phone_number_id: klinikanın WA nömrəsinin ID-si (göndərən).
+    phone_number_id: müəssisənin WA nömrəsinin ID-si (göndərən).
     to: müştərinin WA nömrəsi.
     """
     url = (

@@ -7,7 +7,7 @@ from django.conf import settings
 def send_text(page_id: str, to: str, text: str) -> dict:
     """Instagram user-ə mətn mesajı göndərir.
 
-    page_id: klinikanın bağlı Instagram/Facebook səhifəsinin ID-si.
+    page_id: müəssisənin bağlı Instagram/Facebook səhifəsinin ID-si.
     to: müştərinin Instagram-scoped user ID-si.
     """
     url = (
