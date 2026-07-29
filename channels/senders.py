@@ -13,11 +13,13 @@ def send_reply(conversation: Conversation, text: str) -> dict:
             phone_number_id=business.whatsapp_phone_number_id,
             to=conversation.external_user_id,
             text=text,
+            access_token=business.access_token,
         )
     if conversation.channel == Conversation.Channel.INSTAGRAM:
         return instagram.send_text(
             page_id=business.instagram_page_id,
             to=conversation.external_user_id,
             text=text,
+            access_token=business.access_token,
         )
     raise ValueError(f"Naməlum kanal: {conversation.channel}")

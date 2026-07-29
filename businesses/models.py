@@ -32,6 +32,14 @@ class Business(models.Model):
     # Kanal kimlikləri
     whatsapp_phone_number_id = models.CharField(max_length=100, blank=True)
     instagram_page_id = models.CharField(max_length=100, blank=True)
+    access_token = models.TextField(
+        blank=True,
+        help_text=(
+            "Bu müəssisənin Graph API access token-i (WhatsApp/Instagram göndərmə "
+            "üçün). Hər tenant öz token-inə malikdir — fərqli WABA/Page-lər eyni "
+            "token-i paylaşmır."
+        ),
+    )
 
     # Personalın bildiriş aldığı Telegram qrupu
     telegram_chat_id = models.CharField(max_length=100, blank=True)

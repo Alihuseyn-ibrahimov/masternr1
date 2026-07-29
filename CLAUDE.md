@@ -11,11 +11,15 @@ bazasından cavab verir, randevu/qeydiyyat sorğusu yığır, lazım olanda oper
 
 - Faza 1-4 **tamam**, 52/52 test keçir. Faza 5 (VPS deploy) qalır.
 - Uçdan-uca canlı WhatsApp axını bir dəfə tam təsdiqlənib (Meta test nömrəsi ilə).
-- **Aktiv pilot: Master NR 1 Tədris Mərkəzi** (magistratura/doktorantura/DQ hazırlıq).
-  Təsisçidən razılıq var, görüş gözlənilir.
+- **Aktiv pilot 1: Master NR 1 Tədris Mərkəzi** (magistratura/doktorantura/DQ hazırlıq,
+  WhatsApp). Təsisçidən razılıq var, görüş gözlənilir.
+- **Aktiv pilot 2: DVX Tədris Mərkəzi** (vergi/mühasibatlıq təlimləri, Instagram DM).
+  Instagram Business Account qoşulub (`instagram_page_id` + `access_token` yazılıb),
+  KB hələ placeholder-dir. Plan: `.planning/2026-07-29-dvx-pilot/task_plan.md`.
 - Kod bir sahəyə bağlı deyil — `Business` modeli istənilən müəssisə üçün tenant-dır.
-  Sistem multi-tenant qalır: gələcəkdə ikinci müştəri əlavə etmək kod dəyişikliyi
-  tələb etmir, yalnız yeni `Business` yazısı + kanal ID-si lazımdır.
+  Sistem multi-tenant qalır: iki tenant artıq paralel işləyir, yeni müştəri əlavə
+  etmək kod dəyişikliyi tələb etmir, yalnız yeni `Business` yazısı + kanal ID-si
+  + öz access_token-i lazımdır.
 
 ## Əmrlər
 
@@ -52,9 +56,14 @@ PYTHONIOENCODING=utf-8 "$P/.venv/Scripts/python" "$P/manage.py" seed_masternr1
 ## Multi-tenant marşrutlaşdırma — diqqət
 
 Gələn mesaj `whatsapp_phone_number_id` / `instagram_page_id` ilə müəssisəyə bağlanır.
-**Bir `phone_number_id` yalnız BİR müəssisədə ola bilər** — eyni ID iki tenant-a
-yazılsa marşrutlaşdırma pozulur. Yeni tenant seed edəndə köhnəsinin ID-sini boşalt
-(`seed_masternr1` bunu özü edir).
+**Bir `phone_number_id`/`page_id` yalnız BİR müəssisədə ola bilər** — eyni ID iki
+tenant-a yazılsa marşrutlaşdırma pozulur. Yeni tenant seed edəndə köhnəsinin
+ID-sini boşalt (`seed_masternr1` bunu özü edir).
+
+**Göndərmə tərəfi də tenant-a bağlıdır:** `Business.access_token` — hər
+müəssisənin öz Graph API token-i var (`channels/senders.py` bunu ötürür).
+Qlobal `META_ACCESS_TOKEN` YOXDUR (silindi) — fərqli WABA/Page-lər fərqli
+token tələb etdiyi üçün qlobal token iki tenant-la işləmirdi.
 
 ## Prompt fərdiləşdirmə (yeni müəssisə üçün)
 
@@ -93,8 +102,9 @@ Claude). Kod interfeysi provayderdən asılı deyil — dəyişiklik `_get_clien
 
 Bunlar canlı testdə baş verib, təkrarlanmasın:
 
-1. **Access token 24 saatlıqdır.** Bitəndə göndərmə 401 verir. Yeniləyəndən sonra
-   `.env`-i düzəlt **və Django serverini restart et** (env proses başlanğıcında oxunur).
+1. **Access token 24 saatlıqdır (WhatsApp test nömrəsi üçün).** Bitəndə göndərmə
+   401 verir. Yeniləyəndən sonra **`Business.access_token`-i Django admin-dən
+   yenilə** (bu, .env deyil — DB sahəsidir, server restart lazım deyil).
 2. **WABA ayrıca abunə tələb edir.** Meta panelində webhook subscribe etmək kifayət
    deyil — `POST /{waba_id}/subscribed_apps` ilə WABA bizim app-a abunə olmalıdır.
    Defolt olaraq başqa app-a abunə ola bilər, o zaman mesaj ümumiyyətlə gəlmir.
@@ -102,13 +112,27 @@ Bunlar canlı testdə baş verib, təkrarlanmasın:
    Meta-dakı Callback URL (+ Verify and save) və `.env`-dəki `DJANGO_ALLOWED_HOSTS`.
    Meta-dan verify GET gəlməyibsə, Callback URL köhnədir.
 4. Test nömrəsi `v25.0` işlədir (`META_GRAPH_API_VERSION`).
+5. **Instagram Tester dəvəti işləməyə bilər (məlum bug).** "Instagram Tester" rolu
+   Meta-da "Pending" qalıb Instagram tərəfində heç vaxt görünməyə bilər (Instagram
+   Settings → Website permissions-da "Tester Invites" tab-ı olmaya bilər). Bu halda
+   **"API setup with Facebook login" axınına keç** (Instagram-login yerinə):
+   klassik Facebook "Tester" rolu (Instagram Tester yox) əlavə et → şəxs
+   developers.facebook.com-a developer kimi qeydiyyatdan keçsin → Facebook
+   bildirişlərindən (İnstagram Settings-dən yox) dəvəti qəbul etsin → Graph API
+   Explorer-də "Get Page Access Token" ilə `pages_show_list`,
+   `pages_read_engagement`, `instagram_basic`, `instagram_manage_messages`,
+   `business_management` icazələri seçib token yarat → `/me/accounts?fields=
+   id,name,instagram_business_account` ilə Page ID + Instagram Business
+   Account ID-ni tap.
 
 ## Konfiqurasiya
 
 `.env` (gitignored, **commit etmə**) — nümunə üçün `.env.example`-a bax.
-Açarlar: `GROQ_API_KEY`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_ACCESS_TOKEN`,
+Açarlar: `GROQ_API_KEY`, `META_APP_SECRET`, `META_VERIFY_TOKEN`,
 `META_GRAPH_API_VERSION`, `ASSISTANT_MODEL`, `TELEGRAM_BOT_TOKEN`,
 `DJANGO_ALLOWED_HOSTS`, `CELERY_TASK_ALWAYS_EAGER`.
+
+Access token .env-də DEYİL — hər `Business.access_token` sahəsində (Django admin).
 
 Dev-də Celery eager rejimdədir (Redis lazım deyil), baza SQLite.
 Prod-da PostgreSQL keçidi (`dj-database-url`) hələ edilməyib — Faza 5 işidir.

@@ -7,10 +7,9 @@ qalan yalnız secret-lər, servis konfiqurasiyası və pilot müəssisənin məl
 
 | Nə | Haradan |
 |----|---------|
-| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
-| `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_ACCESS_TOKEN` | developers.facebook.com app |
-| WhatsApp `phone_number_id` | Meta app → WhatsApp → API Setup |
-| Instagram `page_id` | Bağlı FB/IG səhifəsi |
+| `GROQ_API_KEY` | console.groq.com/keys |
+| `META_APP_SECRET`, `META_VERIFY_TOKEN` | developers.facebook.com app (app-səviyyəli, .env-ə) |
+| Hər müəssisə üçün: `whatsapp_phone_number_id` / `instagram_page_id` + **access_token** | Meta app → WhatsApp API Setup / Graph API Explorer (Page Access Token) — `Business` sahəsinə, .env-ə YOX |
 | `TELEGRAM_BOT_TOKEN` + müəssisə qrup `chat_id` | @BotFather + qrupa bot əlavə et |
 | VPS + HTTPS domen (məs. bot.prdostu.com subdomeni) | mövcud |
 
@@ -42,13 +41,15 @@ DJANGO_DEBUG=false
 DJANGO_ALLOWED_HOSTS=bot.prdostu.com
 DATABASE_URL=postgres://masternr1:<şifrə>@localhost/masternr1   # settings-ə əlavə lazımdır (aşağı qeyd)
 CELERY_TASK_ALWAYS_EAGER=false
-ANTHROPIC_API_KEY=...
-ASSISTANT_MODEL=claude-opus-4-8
+GROQ_API_KEY=...
+ASSISTANT_MODEL=llama-3.3-70b-versatile
 META_APP_SECRET=...
 META_VERIFY_TOKEN=...
-META_ACCESS_TOKEN=...
 TELEGRAM_BOT_TOKEN=...
 ```
+
+Access token .env-də deyil — hər `Business` yazısının öz `access_token`
+sahəsində saxlanır (bax Addım 5).
 
 > QEYD: `settings.py`-də DATABASE hazırda SQLite-dir. Prod-da PostgreSQL üçün
 > `dj-database-url` əlavə edib `DATABASES['default']`-ı `DATABASE_URL`-dən oxut.
@@ -82,8 +83,10 @@ Meta app → WhatsApp/Instagram → Webhooks → Callback URL:
 ## 5. Pilot müəssisənin onboarding-i (Django admin)
 
 `/admin/`-ə gir → **Businesses**:
-1. Müəssisə yarat: ad, slug, ünvan, telefon, iş saatları, `whatsapp_phone_number_id`,
-   `instagram_page_id`, `telegram_chat_id`.
+1. Müəssisə yarat: ad, slug, ünvan, telefon, iş saatları, `whatsapp_phone_number_id`
+   və/və ya `instagram_page_id`, `telegram_chat_id`, **`access_token`** (bu
+   müəssisənin öz Graph API token-i — WhatsApp üçün Meta app-dan, Instagram üçün
+   Graph API Explorer-dən Page Access Token kimi alınır).
 2. İçəridə (inline): Xidmətlər/proqramlar (+qiymət), Komanda üzvləri, FAQ.
 3. `staff_label` və **`guardrail_text`** sahələrini bu müəssisəyə uyğun doldur —
    guardrail boş buraxılmamalıdır (hüquqi risk).

@@ -138,9 +138,10 @@ ASSISTANT_MODEL = os.getenv('ASSISTANT_MODEL', 'llama-3.3-70b-versatile')
 ASSISTANT_MAX_TOKENS = int(os.getenv('ASSISTANT_MAX_TOKENS', '1024'))
 
 # --- Meta (WhatsApp Cloud API + Instagram Messaging) ---
+# QEYD: access token qlobal deyil — hər Business öz access_token sahəsində saxlanır
+# (fərqli WABA/Page-lər fərqli token tələb edir). Yalnız app-səviyyəli sirlər burada.
 META_APP_SECRET = os.getenv('META_APP_SECRET', '')
 META_VERIFY_TOKEN = os.getenv('META_VERIFY_TOKEN', '')
-META_ACCESS_TOKEN = os.getenv('META_ACCESS_TOKEN', '')
 META_GRAPH_API_VERSION = os.getenv('META_GRAPH_API_VERSION', 'v23.0')
 
 # --- Telegram bildirişləri ---
