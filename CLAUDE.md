@@ -112,7 +112,19 @@ Bunlar canlı testdə baş verib, təkrarlanmasın:
    Meta-dakı Callback URL (+ Verify and save) və `.env`-dəki `DJANGO_ALLOWED_HOSTS`.
    Meta-dan verify GET gəlməyibsə, Callback URL köhnədir.
 4. Test nömrəsi `v25.0` işlədir (`META_GRAPH_API_VERSION`).
-5. **Instagram Tester dəvəti işləməyə bilər (məlum bug).** "Instagram Tester" rolu
+5. **Instagram-ın öz webhook Callback URL-i WhatsApp-dan AYRIDIR.** WhatsApp üçün
+   Callback URL doğrulasan da, Instagram mesajları üçün "Kullanım durumları →
+   Manage messaging & content on Instagram → Customize → 3. Configure webhooks"
+   bölməsində EYNİ URL/token-i AYRICA doldurub "Verify and save" etmək lazımdır.
+6. **Instagram canlı mesajlaşma Advanced Access tələb edir (BLOKER, 2026-07-29).**
+   Page/IG qoşulması, icazələr, webhook — hamısı doğru olsa belə, real/arbitrary
+   hesablardan gələn mesajlar Business API-yə (nə webhook, nə `/conversations`)
+   çatmır, çünki `instagram_manage_messages` statusu "Ready for testing"
+   (Standard Access) qalıb. Development Mode yalnız məhdud test dairəsi ilə
+   işləyir. Həlli: Meta App Review-a Advanced Access müraciəti (formal proses,
+   istifadəçi edir). Bunu hər dəfə "bəlkə konfiqurasiya səhvidir" deyə yenidən
+   axtarmaqdan qaçın — artıq sınanıb, səbəb budur.
+7. **Instagram Tester dəvəti işləməyə bilər (məlum bug).** "Instagram Tester" rolu
    Meta-da "Pending" qalıb Instagram tərəfində heç vaxt görünməyə bilər (Instagram
    Settings → Website permissions-da "Tester Invites" tab-ı olmaya bilər). Bu halda
    **"API setup with Facebook login" axınına keç** (Instagram-login yerinə):
