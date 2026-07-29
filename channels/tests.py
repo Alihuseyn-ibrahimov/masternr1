@@ -196,3 +196,79 @@ class WebhookViewTests(TestCase):
         conv = Conversation.objects.get()
         self.assertEqual(conv.channel, Conversation.Channel.INSTAGRAM)
         mock_send.assert_called_once()
+
+
+class ManychatWebhookTests(TestCase):
+    """ManyChat relay endpoint-i: token ilə marşrutlaşdırma + sinxron cavab."""
+
+    def setUp(self):
+        self.client = Client()
+        self.business = Business.objects.create(
+            name="Test Tədris Mərkəzi",
+            slug="test-manychat",
+            manychat_token="mc-secret-1",
+        )
+        self.url = reverse("manychat_webhook")
+
+    def _post(self, payload, token="mc-secret-1"):
+        return self.client.post(
+            self.url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            headers={"X-Relay-Token": token} if token else {},
+        )
+
+    @patch("channels.views.generate_reply", return_value="Salam, kömək edim?")
+    def test_reply_returned_and_messages_saved(self, mock_reply):
+        resp = self._post({"subscriber_id": "sub-1", "text": "Salam"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["reply"], "Salam, kömək edim?")
+        conv = Conversation.objects.get()
+        self.assertEqual(conv.business, self.business)
+        self.assertEqual(conv.channel, Conversation.Channel.INSTAGRAM)
+        self.assertEqual(conv.external_user_id, "sub-1")
+        roles = [m.role for m in conv.messages.all()]
+        self.assertEqual(roles, [Message.Role.CUSTOMER, Message.Role.BOT])
+
+    def test_missing_token_rejected(self):
+        resp = self._post({"subscriber_id": "sub-1", "text": "Salam"}, token=None)
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(Conversation.objects.count(), 0)
+
+    def test_wrong_token_rejected(self):
+        resp = self._post({"subscriber_id": "sub-1", "text": "Salam"}, token="yanlis")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_blank_token_business_not_matched(self):
+        # manychat_token boş olan müəssisə boş header ilə açılmamalıdır
+        self.business.manychat_token = ""
+        self.business.save(update_fields=["manychat_token"])
+        resp = self._post({"subscriber_id": "sub-1", "text": "Salam"}, token="")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_missing_subscriber_id_rejected(self):
+        resp = self._post({"text": "Salam"})
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("channels.views.generate_reply")
+    def test_paused_conversation_returns_empty_reply(self, mock_reply):
+        Conversation.objects.create(
+            business=self.business,
+            channel=Conversation.Channel.INSTAGRAM,
+            external_user_id="sub-1",
+            bot_paused=True,
+        )
+        resp = self._post({"subscriber_id": "sub-1", "text": "Salam"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["reply"], "")
+        mock_reply.assert_not_called()
+        # Müştəri mesajı yenə də tarixçəyə düşməlidir (operator görsün)
+        conv = Conversation.objects.get()
+        self.assertEqual(conv.messages.filter(role=Message.Role.CUSTOMER).count(), 1)
+
+    @patch("channels.views.generate_reply", return_value="cavab")
+    def test_empty_text_gets_non_text_fallback(self, mock_reply):
+        resp = self._post({"subscriber_id": "sub-1", "text": ""})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("mətn", resp.json()["reply"].lower())
+        mock_reply.assert_not_called()

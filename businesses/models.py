@@ -40,6 +40,15 @@ class Business(models.Model):
             "token-i paylaşmır."
         ),
     )
+    manychat_token = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=(
+            "ManyChat relay kanalı üçün gizli token. ManyChat-in External Request "
+            "addımında X-Relay-Token header-i kimi göndərilir; sorğu bu token ilə "
+            "müəssisəyə marşrutlaşdırılır. Boş qalsa ManyChat kanalı bağlıdır."
+        ),
+    )
 
     # Personalın bildiriş aldığı Telegram qrupu
     telegram_chat_id = models.CharField(max_length=100, blank=True)
