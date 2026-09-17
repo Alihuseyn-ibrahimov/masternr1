@@ -1,6 +1,7 @@
-"""Danışığa cavab mətninin generasiyası — Groq (Llama) tool-use agenti.
+"""Danışığa cavab mətninin generasiyası — LangChain + ChatGroq tool-use agenti.
 
-Groq API OpenAI-uyğun formatdadır (chat.completions.create + tools).
+System prompt `ChatPromptTemplate` ilə qurulur, alətlər `bind_tools` ilə
+modelə bağlanır, tool loop əl ilə idarə olunur (max 4 dövr).
 Agent üç davranışa malikdir:
 - adi mətn cavabı — müəssisənin bilik bazasından cavab
 - `create_customer_request` — randevu sorğusunu qeyd et + Telegram bildirişi
@@ -10,10 +11,11 @@ Müəssisəyə xas qadağa qaydası (guardrail) system promptdadır (bax: `promp
 Task interfeysi sabitdir: `generate_reply(conversation) -> str`.
 """
 
-import json
 import logging
 
 from django.conf import settings
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from . import notifications
 from .models import Conversation, CustomerRequest, Message
@@ -82,23 +84,53 @@ TOOLS = [
 ]
 
 
+# System prompt dəyişən kimi ötürülür — KB mətnindəki `{}` simvolları
+# template placeholder-i kimi şərh olunmasın deyə.
+PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", "{system_prompt}"),
+        MessagesPlaceholder("messages"),
+    ]
+)
+
+
 def _get_client():
-    import groq
+    from langchain_groq import ChatGroq
 
-    return groq.Groq(api_key=settings.GROQ_API_KEY)
+    model = ChatGroq(
+        model=settings.ASSISTANT_MODEL,
+        temperature=0.3,
+        max_tokens=settings.ASSISTANT_MAX_TOKENS,
+        api_key=settings.GROQ_API_KEY,
+    )
+    return model.bind_tools(TOOLS)
 
 
-def _history_to_messages(conversation: Conversation) -> list[dict]:
-    """Danışıq tarixçəsini OpenAI-uyğun mesaj formatına çevirir."""
+def _message_text(message) -> str:
+    """AIMessage məzmununu mətnə çevirir (blok siyahısı da ola bilər)."""
+    content = message.content
+    if isinstance(content, list):
+        parts = [
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        ]
+        content = "".join(parts)
+    return (content or "").strip()
+
+
+def _history_to_messages(conversation: Conversation) -> list:
+    """Danışıq tarixçəsini LangChain mesaj obyektlərinə çevirir."""
     recent = list(conversation.messages.all())[-MAX_HISTORY:]
     messages = []
     for m in recent:
         if not m.text:
             continue
-        role = "user" if m.role == Message.Role.CUSTOMER else "assistant"
-        messages.append({"role": role, "content": m.text})
-    # İlk mesaj "user" olmalıdır
-    while messages and messages[0]["role"] != "user":
+        if m.role == Message.Role.CUSTOMER:
+            messages.append(HumanMessage(content=m.text))
+        else:
+            messages.append(AIMessage(content=m.text))
+    # İlk mesaj müştəri mesajı olmalıdır
+    while messages and not isinstance(messages[0], HumanMessage):
         messages.pop(0)
     return messages
 
@@ -127,42 +159,24 @@ def _handle_tool(conversation: Conversation, name: str, tool_input: dict) -> str
 
 
 def _run_agent(client, conversation, system, messages) -> str:
-    full_messages = [{"role": "system", "content": system}, *messages]
+    full_messages = PROMPT.format_messages(system_prompt=system, messages=messages)
     response = None
 
     for _ in range(MAX_TOOL_ITERATIONS):
-        response = client.chat.completions.create(
-            model=settings.ASSISTANT_MODEL,
-            max_tokens=settings.ASSISTANT_MAX_TOKENS,
-            messages=full_messages,
-            tools=TOOLS,
-        )
-        choice = response.choices[0]
-        message = choice.message
+        response = client.invoke(full_messages)
 
-        if choice.finish_reason != "tool_calls" or not message.tool_calls:
-            return (message.content or "").strip()
+        if not getattr(response, "tool_calls", None):
+            return _message_text(response)
 
-        full_messages.append(
-            {
-                "role": "assistant",
-                "content": message.content,
-                "tool_calls": message.tool_calls,
-            }
-        )
-        for call in message.tool_calls:
-            args = json.loads(call.function.arguments or "{}")
-            result = _handle_tool(conversation, call.function.name, args)
+        full_messages.append(response)
+        for call in response.tool_calls:
+            result = _handle_tool(conversation, call["name"], call.get("args") or {})
             full_messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": result,
-                }
+                ToolMessage(content=result, tool_call_id=call.get("id") or "")
             )
 
     if response is not None:
-        return (response.choices[0].message.content or "").strip()
+        return _message_text(response)
     return ""
 
 

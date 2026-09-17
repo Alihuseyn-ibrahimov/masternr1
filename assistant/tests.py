@@ -152,70 +152,33 @@ class ConversationModelTests(TestCase):
         self.assertEqual(req.status, CustomerRequest.Status.NEW)
 
 
-# --- Fake Groq client (OpenAI-uyğun tool-use agentini test etmək üçün) ---
+# --- Fake LangChain çat modeli (tool-use agentini test etmək üçün) ---
 
-import json as _json
-
-
-class FakeFunctionCall:
-    def __init__(self, name, arguments):
-        self.name = name
-        self.arguments = _json.dumps(arguments)
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 
-class FakeToolCall:
-    def __init__(self, id, name, arguments):
-        self.id = id
-        self.function = FakeFunctionCall(name, arguments)
+class FakeChatModel:
+    """`invoke(messages)` ardıcıl hazır AIMessage-lər qaytarır."""
 
-
-class FakeMessage:
-    def __init__(self, content=None, tool_calls=None):
-        self.content = content
-        self.tool_calls = tool_calls or []
-
-
-class FakeChoice:
-    def __init__(self, message, finish_reason):
-        self.message = message
-        self.finish_reason = finish_reason
-
-
-class FakeResponse:
-    def __init__(self, message, finish_reason):
-        self.choices = [FakeChoice(message, finish_reason)]
-
-
-class FakeChatCompletions:
     def __init__(self, responses):
         self._responses = list(responses)
         self.calls = []
 
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
+    def invoke(self, messages, **kwargs):
+        self.calls.append(list(messages))
         return self._responses.pop(0)
 
 
-class FakeClient:
-    """client.chat.completions.create(...) ardıcıl hazır cavablar qaytarır."""
-
-    def __init__(self, responses):
-        self.chat = self
-        self.completions = FakeChatCompletions(responses)
-
-    @property
-    def calls(self):
-        return self.completions.calls
-
-
 def text_response(text):
-    return FakeResponse(FakeMessage(content=text), "stop")
+    return AIMessage(content=text)
 
 
 def tool_call_response(name, arguments, call_id="call_1"):
-    return FakeResponse(
-        FakeMessage(tool_calls=[FakeToolCall(call_id, name, arguments)]),
-        "tool_calls",
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {"name": name, "args": arguments, "id": call_id, "type": "tool_call"}
+        ],
     )
 
 
@@ -235,7 +198,7 @@ class AgentTests(TestCase):
 
     def test_plain_answer_returned(self):
         self._add_customer_msg("Magistratura hazırlığı neçəyədir?")
-        client = FakeClient([text_response("Magistratura hazırlığı 300 AZN-dir.")])
+        client = FakeChatModel([text_response("Magistratura hazırlığı 300 AZN-dir.")])
         reply = responder.generate_reply(self.conv, client=client)
         self.assertEqual(reply, "Magistratura hazırlığı 300 AZN-dir.")
 
@@ -245,12 +208,12 @@ class AgentTests(TestCase):
             conversation=self.conv, role=Message.Role.BOT, text="Xoş gəlmisiniz!"
         )
         self._add_customer_msg("Salam")
-        client = FakeClient([text_response("Salam, necə kömək edə bilərəm?")])
+        client = FakeChatModel([text_response("Salam, necə kömək edə bilərəm?")])
         responder.generate_reply(self.conv, client=client)
-        sent = client.calls[0]["messages"]
-        self.assertEqual(sent[0]["role"], "system")
-        self.assertEqual(sent[1]["role"], "user")
-        self.assertEqual(sent[1]["content"], "Salam")
+        sent = client.calls[0]
+        self.assertIsInstance(sent[0], SystemMessage)
+        self.assertIsInstance(sent[1], HumanMessage)
+        self.assertEqual(sent[1].content, "Salam")
 
     @patch("assistant.notifications.notify_request")
     def test_customer_request_tool_creates_request_and_notifies(self, mock_notify):
@@ -266,7 +229,7 @@ class AgentTests(TestCase):
             call_id="toolu_1",
         )
         final = text_response("Məlumatlarınızı qeyd etdim, sizinlə əlaqə saxlanılacaq.")
-        client = FakeClient([tool_use, final])
+        client = FakeChatModel([tool_use, final])
 
         reply = responder.generate_reply(self.conv, client=client)
 
@@ -287,7 +250,7 @@ class AgentTests(TestCase):
             {"reason": "Müştəri operator istədi"},
             call_id="toolu_2",
         )
-        client = FakeClient([tool_use, text_response("Sizi operatora yönləndirirəm.")])
+        client = FakeChatModel([tool_use, text_response("Sizi operatora yönləndirirəm.")])
 
         responder.generate_reply(self.conv, client=client)
 
@@ -300,11 +263,7 @@ class AgentTests(TestCase):
         self._add_customer_msg("Salam")
 
         class BoomClient:
-            def __init__(self):
-                self.chat = self
-                self.completions = self
-
-            def create(self, **kwargs):
+            def invoke(self, messages, **kwargs):
                 raise RuntimeError("API down")
 
         reply = responder.generate_reply(self.conv, client=BoomClient())
@@ -312,6 +271,6 @@ class AgentTests(TestCase):
         mock_notify.assert_called_once()
 
     def test_empty_history_returns_fallback(self):
-        client = FakeClient([])
+        client = FakeChatModel([])
         reply = responder.generate_reply(self.conv, client=client)
         self.assertEqual(reply, responder.FALLBACK_REPLY)

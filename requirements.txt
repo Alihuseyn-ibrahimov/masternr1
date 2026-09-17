@@ -1,6 +1,7 @@
 django>=6.0,<7.0
 celery>=5.4
 redis>=5.0
-groq>=0.11
+langchain-core>=0.3
+langchain-groq>=0.2
 requests>=2.32
 python-dotenv>=1.0

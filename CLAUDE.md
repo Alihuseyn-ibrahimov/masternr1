@@ -47,7 +47,7 @@ PYTHONIOENCODING=utf-8 "$P/.venv/Scripts/python" "$P/manage.py" seed_masternr1
 |---|---|
 | `businesses` | Tenant (`Business`) + bilik bazası: `Service`, `StaffMember`, `FAQItem` |
 | `channels` | Meta webhook (GET verify + POST), imza yoxlanışı, dedup, göndərmə, Celery task |
-| `assistant` | `Conversation`, `Message`, `CustomerRequest`; sistem promptu; Groq tool-use agenti; Telegram bildirişləri |
+| `assistant` | `Conversation`, `Message`, `CustomerRequest`; sistem promptu; LangChain+ChatGroq tool-use agenti; Telegram bildirişləri |
 | `inbox` | Operator paneli: danışıqlar, cavab yazma, bot pauzası, sorğular siyahısı |
 
 Əsas fayllar: `assistant/responder.py` (agent), `assistant/prompt.py` (sistem promptu),
@@ -83,11 +83,13 @@ Guardrail hər tenant üçün mütləqdir — hüquqi risk buradadır.
 `handoff_to_operator` (botu pauza edir). Alət çağırılmasa — adi mətn cavabı.
 LLM xətası → `FALLBACK_REPLY` + Telegram alert. Tarixçə: son 20 mesaj.
 
-Testlərdə `FakeClient` işlədilir (OpenAI/Groq formatında) — real API çağırılmır.
+Testlərdə `FakeChatModel` işlədilir (LangChain `invoke` → `AIMessage`) — real API
+çağırılmır.
 
 ## LLM provayderi — həll olunmamış məsələ
 
-Hazırda **Groq** (OpenAI-uyğun API). Model `ASSISTANT_MODEL` env ilə seçilir.
+Hazırda **Groq**, LangChain vasitəsilə (`ChatGroq` + `bind_tools`, əl ilə tool loop).
+Model `ASSISTANT_MODEL` env ilə seçilir; `temperature=0.3`.
 
 - `llama-3.3-70b-versatile` — keyfiyyət yaxşı, **pulsuz tier günlük 100K token**
   (bir danışıq ~2.6K token, tez tükənir)
@@ -95,8 +97,8 @@ Hazırda **Groq** (OpenAI-uyğun API). Model `ASSISTANT_MODEL` env ilə seçilir
   (JSON əvəzinə psevdo-XML üretir → `400 tool_use_failed`). Pilot üçün YARARSIZ.
 
 **Canlı demodan əvvəl model qərarı verilməlidir** (Groq Dev Tier ödənişli və ya
-Claude). Kod interfeysi provayderdən asılı deyil — dəyişiklik `_get_client` və
-`_run_agent` daxilində məhdudlaşır. Qərarı istifadəçi verir, özün keçirmə.
+Claude). Kod interfeysi provayderdən asılı deyil — LangChain chat modeli dəyişmək `_get_client`
+daxilində bir sətirdir. Qərarı istifadəçi verir, özün keçirmə.
 
 ## Meta inteqrasiyası — real tələlər
 
